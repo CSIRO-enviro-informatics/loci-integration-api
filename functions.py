@@ -277,11 +277,16 @@ async def get_datasets(count=1000, offset=0):
     """
     sparql = """\
 PREFIX dcat: <http://www.w3.org/ns/dcat#>
+PREFIX loci: <http://linked.data.gov.au/def/loci#>
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
 SELECT DISTINCT ?d
 WHERE {
     {
         ?d a dcat:Dataset .
+    }
+    UNION
+    {
+        ?d a loci:Dataset .
     }
     UNION
     {
@@ -314,7 +319,7 @@ async def get_locations(count=1000, offset=0):
     """
     sparql = """\
 PREFIX geo: <http://www.opengis.net/ont/geosparql#>
-PREFIX prov: <http://www.w3.org/ns/prov#>
+# PREFIX prov: <http://www.w3.org/ns/prov#>
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
 PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 SELECT DISTINCT ?l
@@ -331,19 +336,20 @@ WHERE {
             rdf:predicate rdf:type ;
             rdf:object geo:Feature .
     }
-    UNION
-    { ?l a prov:Location }
-    UNION
-    {
-        ?c2 rdfs:subClassOf+ prov:Location .
-        ?l a ?c2 .
-    }
-    UNION
-    {
-        ?s2 rdf:subject ?l ;
-            rdf:predicate rdf:type ;
-            rdf:object prov:Location .
-    } .
+#    UNION
+#    { ?l a prov:Location }
+#    UNION
+#    {
+#        ?c2 rdfs:subClassOf+ prov:Location .
+#        ?l a ?c2 .
+#    }
+#    UNION
+#    {
+#        ?s2 rdf:subject ?l ;
+#            rdf:predicate rdf:type ;
+#            rdf:object prov:Location .
+#    } 
+.
 }
 """
     resp = await query_graphdb_endpoint(sparql, limit=count, offset=offset)
@@ -628,28 +634,29 @@ async def get_location_overlaps(target_uri, output_featuretype_uri, include_area
     overlaps_sparql = """\
 PREFIX geo: <http://www.opengis.net/ont/geosparql#>
 PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
-PREFIX ipo: <http://purl.org/dc/terms/isPartOf> 
+PREFIX dcterms: <http://purl.org/dc/terms/>
+# PREFIX ipo: <http://purl.org/dc/terms/isPartOf> 
 PREFIX geox: <http://linked.data.gov.au/def/geox#>
-PREFIX qb4st: <http://www.w3.org/ns/qb4st/>
+# PREFIX qb4st: <http://www.w3.org/ns/qb4st/>
 PREFIX epsg: <http://www.opengis.net/def/crs/EPSG/0/>
 PREFIX dt: <http://linked.data.gov.au/def/datatype/>
 SELECT <SELECTS>
 WHERE {
     {
         { 
-           ?s1 rdf:subject <URI> ;
-           <LINKSET_FILTER>
-           rdf:predicate geox:transitiveSfOverlap;
-           rdf:object ?o  .
-        } UNION {
+#           ?s1 rdf:subject <URI> ;
+#           <LINKSET_FILTER>
+#           rdf:predicate geox:transitiveSfOverlap;
+#           rdf:object ?o  .
+#        } UNION {
            ?s2 rdf:subject <URI> ;
            <LINKSET_FILTER>
            rdf:predicate geo:sfOverlaps;
            rdf:object ?o  .
         }
     }
-    UNION
-    { <URI> geox:transitiveSfOverlap ?o }
+#    UNION
+#    { <URI> geox:transitiveSfOverlap ?o }
     UNION
     { <URI> geo:sfOverlaps ?o }
     <EXTRAS>
@@ -659,9 +666,10 @@ GROUP BY ?o
     contains_sparql = """\
     PREFIX geo: <http://www.opengis.net/ont/geosparql#>
     PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
-    PREFIX ipo: <http://purl.org/dc/terms/isPartOf> 
+    PREFIX dcterms: <http://purl.org/dc/terms/>
+#    PREFIX ipo: <http://purl.org/dc/terms/isPartOf> 
     PREFIX geox: <http://linked.data.gov.au/def/geox#>
-    PREFIX qb4st: <http://www.w3.org/ns/qb4st/>
+#    PREFIX qb4st: <http://www.w3.org/ns/qb4st/>
     PREFIX epsg: <http://www.opengis.net/def/crs/EPSG/0/>
     PREFIX dt: <http://linked.data.gov.au/def/datatype/>
     SELECT ?c <SELECTS>
@@ -685,8 +693,9 @@ GROUP BY ?o
     PREFIX geo: <http://www.opengis.net/ont/geosparql#>
     PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
     PREFIX geox: <http://linked.data.gov.au/def/geox#>
-    PREFIX ipo: <http://purl.org/dc/terms/isPartOf> 
-    PREFIX qb4st: <http://www.w3.org/ns/qb4st/>
+    PREFIX dcterms: <http://purl.org/dc/terms/>
+#    PREFIX ipo: <http://purl.org/dc/terms/isPartOf> 
+#    PREFIX qb4st: <http://www.w3.org/ns/qb4st/>
     PREFIX epsg: <http://www.opengis.net/def/crs/EPSG/0/>
     PREFIX dt: <http://linked.data.gov.au/def/datatype/>
     SELECT ?w <SELECTS>
@@ -716,12 +725,14 @@ GROUP BY ?o
     areas_sparql = """\
     OPTIONAL {
         <URI> geox:hasAreaM2 ?ha1 .
-        ?ha1 qb4st:crs epsg:3577 .
+#        ?ha1 qb4st:crs epsg:3577 .
+        ?ha1 geox:inCRS epsg:3577 .
         ?ha1 dt:value ?a1 .
     }
     OPTIONAL {
         ?o geox:hasAreaM2 ?ha2 .
-        ?ha2 qb4st:crs epsg:3577 .
+#        ?ha2 qb4st:crs epsg:3577 .
+        ?ha2 geox:inCRS epsg:3577 .
         ?ha2 dt:value ?a2 .
     }
     """
@@ -746,8 +757,9 @@ GROUP BY ?o
         } .
         OPTIONAL {
             ?i geox:hasAreaM2 ?ha3 .
-            ?ha3 qb4st:crs epsg:3577 .
-            ?ha3 dt:value ?a3 .
+#            ?ha3 qb4st:crs epsg:3577 .
+           ?ha3 geox:inCRS epsg:3577 .
+           ?ha3 dt:value ?a3 .
         }
     }
     """
@@ -763,13 +775,13 @@ GROUP BY ?o
     sparql = sparql.replace("<EXTRAS>", extras)
     sparql = sparql.replace("<URI>", "<{}>".format(str(target_uri)))
     if not linksets_filter is None:
-        sparql = sparql.replace("<LINKSET_FILTER>", "ipo: <{}> ;".format(str(linksets_filter)))
+        sparql = sparql.replace("<LINKSET_FILTER>", "dcterms:isPartOf <{}> ;".format(str(linksets_filter)))
     else:
         sparql = sparql.replace("<LINKSET_FILTER>", "")
     overlaps = []
     bindings = []
     if not linksets_filter is None:
-        sparql = sparql.replace("<LINKSET_FILTER>", "ipo: <{}> ;".format(str(linksets_filter)))
+        sparql = sparql.replace("<LINKSET_FILTER>", "dcterms:isPartOf <{}> ;".format(str(linksets_filter)))
     else:
         sparql = sparql.replace("<LINKSET_FILTER>", "")
     await query_build_response_bindings(sparql, count, offset, bindings)
@@ -783,7 +795,7 @@ GROUP BY ?o
         sparql = sparql.replace("<EXTRAS>", extras)
         sparql = sparql.replace("<URI>", "<{}>".format(str(target_uri)))
         if not linksets_filter is None:
-            sparql = sparql.replace("<LINKSET_FILTER>", "ipo: <{}> ;".format(str(linksets_filter)))
+            sparql = sparql.replace("<LINKSET_FILTER>", "dcterms:isPartOf <{}> ;".format(str(linksets_filter)))
         else:
             sparql = sparql.replace("<LINKSET_FILTER>", "")
         await query_build_response_bindings(sparql, count, offset, bindings)
@@ -797,7 +809,7 @@ GROUP BY ?o
         sparql = sparql.replace("<EXTRAS>", extras)
         sparql = sparql.replace("<URI>", "<{}>".format(str(target_uri)))
         if not linksets_filter is None:
-            sparql = sparql.replace("<LINKSET_FILTER>", "ipo: <{}> ;".format(str(linksets_filter)))
+            sparql = sparql.replace("<LINKSET_FILTER>", "dcterms:isPartOf <{}> ;".format(str(linksets_filter)))
         else:
             sparql = sparql.replace("<LINKSET_FILTER>", "")
         await query_build_response_bindings(sparql, count, offset, bindings)
