@@ -9,4 +9,5 @@ services:
     environment:
       - PYTHONDONTWRITEBYTECODE=1
       - GEOBASE_HOST
+      - TRIPLESTORE_CACHE_URL 
       - GEOBASE_URL
