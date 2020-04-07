@@ -161,12 +161,10 @@ PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 SELECT DISTINCT ?p ?o ?p1 ?o1 ?p2 ?o2
 WHERE {
     {
-        ?s rdf:subject <URI> ;
-           rdf:predicate ?p;
-           rdf:object ?o .
+        <URI> ?p ?o .
         OPTIONAL { FILTER (isBlank(?o))
             {
-                ?s2 rdf:subject ?o ;
+                ?s3 rdf:subject ?o ;
                 rdf:predicate ?p1;
                 rdf:object ?o1 .
             }
@@ -179,10 +177,12 @@ WHERE {
     }
     UNION
     {
-        <URI> ?p ?o .
+        ?s rdf:subject <URI> ;
+           rdf:predicate ?p;
+           rdf:object ?o .
         OPTIONAL { FILTER (isBlank(?o))
             {
-                ?s3 rdf:subject ?o ;
+                ?s2 rdf:subject ?o ;
                 rdf:predicate ?p1;
                 rdf:object ?o1 .
             }
