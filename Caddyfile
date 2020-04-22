@@ -1,6 +1,7 @@
-api.loci.cat
-tls /etc/ssl/wildcard-loci-cat.bundle.pem /etc/ssl/wildcard-loci-cat.pem
-proxy / http://api:8080 {
-   transparent
+*.loci.cat {
+    tls /etc/ssl/wildcard-loci-cat.bundle.pem /etc/ssl/wildcard-loci-cat.pem
+    proxy / http://api:8080 {
+      transparent
+    }
+    cors
 }
-cors

@@ -11,8 +11,7 @@ services:
   caddy:
     image: abiosoft/caddy
     ports:
-      - 80:80
-      - 443:443
+      - 443:2015
     environment:
       - ACME_AGREE=true
     volumes:
