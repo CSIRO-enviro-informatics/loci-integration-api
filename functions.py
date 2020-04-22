@@ -642,23 +642,17 @@ PREFIX epsg: <http://www.opengis.net/def/crs/EPSG/0/>
 PREFIX dt: <http://linked.data.gov.au/def/datatype/>
 SELECT <SELECTS>
 WHERE {
+    ?p rdfs:subPropertyOf* geo:sfOverlaps .
     {
-        { 
-#           ?s1 rdf:subject <URI> ;
-#           <LINKSET_FILTER>
-#           rdf:predicate geox:transitiveSfOverlap;
-#           rdf:object ?o  .
-#        } UNION {
-           ?s2 rdf:subject <URI> ;
-           <LINKSET_FILTER>
-           rdf:predicate geo:sfOverlaps;
-           rdf:object ?o  .
-        }
+        ?s2 rdf:subject <URI> ;
+            <LINKSET_FILTER>
+            rdf:predicate ?p ;
+            rdf:object ?o  .
     }
-#    UNION
-#    { <URI> geox:transitiveSfOverlap ?o }
     UNION
-    { <URI> geo:sfOverlaps ?o }
+    { 
+        <URI> ?p ?o 
+    }
     <EXTRAS>
 }
 GROUP BY ?o
