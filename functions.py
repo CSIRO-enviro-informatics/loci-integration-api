@@ -277,11 +277,16 @@ async def get_datasets(count=1000, offset=0):
     """
     sparql = """\
 PREFIX dcat: <http://www.w3.org/ns/dcat#>
+PREFIX loci: <http://linked.data.gov.au/def/loci#>
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
 SELECT DISTINCT ?d
 WHERE {
     {
         ?d a dcat:Dataset .
+    }
+    UNION
+    {
+       ?d a loci:Dataset .
     }
     UNION
     {
@@ -386,6 +391,7 @@ WHERE {
 }
 """
     sparql = sparql.replace("<URI>", "<{}>".format(str(target_uri)))
+    #print(sparql)
     resp = await query_graphdb_endpoint(sparql, limit=count, offset=offset)
     locations = []
     if 'results' not in resp:
@@ -425,6 +431,7 @@ WHERE {
 }
 """
     sparql = sparql.replace("<URI>", "<{}>".format(str(target_uri)))
+    #print(sparql)
     resp = await query_graphdb_endpoint(sparql, limit=count, offset=offset)
     locations = []
     if 'results' not in resp:
@@ -716,12 +723,12 @@ GROUP BY ?o
     areas_sparql = """\
     OPTIONAL {
         <URI> geox:hasAreaM2 ?ha1 .
-        ?ha1 qb4st:crs epsg:3577 .
+        ?ha1 geox:inCRS epsg:3577 .
         ?ha1 dt:value ?a1 .
     }
     OPTIONAL {
         ?o geox:hasAreaM2 ?ha2 .
-        ?ha2 qb4st:crs epsg:3577 .
+        ?ha2 geox:inCRS epsg:3577 .
         ?ha2 dt:value ?a2 .
     }
     """
@@ -746,7 +753,7 @@ GROUP BY ?o
         } .
         OPTIONAL {
             ?i geox:hasAreaM2 ?ha3 .
-            ?ha3 qb4st:crs epsg:3577 .
+            ?ha3 geox:inCRS epsg:3577 .
             ?ha3 dt:value ?a3 .
         }
     }
@@ -774,6 +781,7 @@ GROUP BY ?o
         sparql = sparql.replace("<LINKSET_FILTER>", "")
     await query_build_response_bindings(sparql, count, offset, bindings)
     extras = ""
+    #print(sparql)
     if include_contains:
         use_selects = selects
         if use_areas_sparql:
@@ -801,6 +809,7 @@ GROUP BY ?o
         else:
             sparql = sparql.replace("<LINKSET_FILTER>", "")
         await query_build_response_bindings(sparql, count, offset, bindings)
+    #print(sparql)
     if len(bindings) < 1:
         return {'count': 0, 'offset': offset}, overlaps
     if not include_proportion and not include_areas:
