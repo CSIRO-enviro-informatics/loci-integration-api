@@ -19,3 +19,4 @@ ES_ENDPOINT = CONFIG["ES_ENDPOINT"] = \
 
 
 GEOM_DATA_SVC_ENDPOINT = CONFIG["GEOM_DATA_SVC_ENDPOINT"] = "https://gds.loci.cat"
+LOCI_DATATYPES_STATIC_JSON = CONFIG["LOCI_DATATYPES_STATIC_JSON"] = "https://loci.cat/json-ld/loci-types.json"

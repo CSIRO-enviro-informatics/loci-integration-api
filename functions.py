@@ -7,6 +7,7 @@ from aiohttp.client_exceptions import ClientConnectorError
 from config import TRIPLESTORE_CACHE_SPARQL_ENDPOINT
 from config import ES_ENDPOINT
 from config import GEOM_DATA_SVC_ENDPOINT
+from config import LOCI_DATATYPES_STATIC_JSON
 
 from json import loads
 
@@ -307,6 +308,60 @@ WHERE {
         'offset': offset,
     }
     return meta, datasets
+
+async def get_dataset_types(datasetUri, datasetType, baseType, count=1000, offset=0):
+    """
+    :param datasetUri:
+    :type datasetUri: string 
+    :param datasetType:
+    :type datasetType: string
+    :param baseType:
+    :type baseType: boolean
+    :param offset:
+    :type offset: int
+    :return:
+    """
+    loop = asyncio.get_event_loop()
+    try:
+        gdt_session = get_dataset_types.session_cache[loop]
+    except KeyError:
+        gdt_session = ClientSession(loop=loop)
+        get_dataset_types.session_cache[loop] = gdt_session
+    row = {}
+    results = {}
+    counter = 0
+    params = {
+    }
+    formatted_resp = {
+        'ok': False
+    }
+    http_ok = [200]
+    url = LOCI_DATATYPES_STATIC_JSON
+    try:
+        resp = await gdt_session.request('GET', url, params=params)
+        resp_content = await resp.text()
+        if resp.status not in http_ok:
+            formatted_resp['errorMessage'] = "Could not retrieve datatypes at loci.cat. Error code {}".format(resp.status)
+            return formatted_resp
+        formatted_resp = loads(resp_content)
+    except ClientConnectorError:
+        formatted_resp['errorMessage'] = "Could not connect to retrieve datatypes at loci.cat. Connection error thrown."
+        return formatted_resp
+    if(datasetUri is not None):
+       res = list(filter(lambda i: i['datasetUri'] == datasetUri, formatted_resp)) 
+       formatted_resp = res
+    if datasetType is not None:
+       res = list(filter(lambda i: i['uri'] == datasetType, formatted_resp)) 
+       formatted_resp = res
+    if(baseType == True):
+       res = list(filter(lambda i: ('baseType' in i and i['baseType'] == True), formatted_resp)) 
+       formatted_resp = res
+    meta = {
+        'count': len(formatted_resp),
+        'offset': 0
+    }
+    return meta, formatted_resp
+get_dataset_types.session_cache = {}
 
 async def get_locations(count=1000, offset=0):
     """
@@ -922,7 +977,6 @@ async def get_at_location(lat, lon, loci_type="any", count=1000, offset=0):
        search_by_latlng_url = GEOM_DATA_SVC_ENDPOINT + "/search/latlng/{},{}".format(lon,lat)
     else:
        search_by_latlng_url = GEOM_DATA_SVC_ENDPOINT + "/search/latlng/{},{}/dataset/{}".format(lon, lat, loci_type)
-
     try:
         resp = await gds_session.request('GET', search_by_latlng_url, params=params)
         resp_content = await resp.text()

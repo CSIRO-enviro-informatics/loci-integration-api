@@ -6,7 +6,7 @@ from sanic.request import Request
 from sanic.exceptions import ServiceUnavailable
 from sanic_restplus import Api, Resource, fields
 
-from functions import get_linksets, get_datasets, get_locations, get_location_is_within, get_location_contains, get_resource, get_location_overlaps_crosswalk, get_location_overlaps, get_at_location, search_location_by_label
+from functions import get_linksets, get_datasets, get_dataset_types, get_locations, get_location_is_within, get_location_contains, get_resource, get_location_overlaps_crosswalk, get_location_overlaps, get_at_location, search_location_by_label
 
 
 url_prefix = '/v1'
@@ -19,6 +19,9 @@ api_v1 = Api(title="LOCI Integration API",
 ns = api_v1.default_namespace
 
 TRUTHS = ("t", "T", "1")
+
+def str2bool(v):
+   return str(v).lower() in ("yes", "true", "t", "1")
 
 @ns.route('/linksets')
 class Linkset(Resource):
@@ -45,7 +48,6 @@ class Linkset(Resource):
 @ns.route('/datasets')
 class Dataset(Resource):
     """Operations on LOCI Datasets"""
-
     @ns.doc('get_datasets', params=OrderedDict([
         ("count", {"description": "Number of datasets to return.",
                    "required": False, "type": "number", "format": "integer", "default": 1000}),
@@ -60,6 +62,41 @@ class Dataset(Resource):
         response = {
             "meta": meta,
             "datasets": datasets,
+        }
+        return json(response, status=200)
+
+@ns.route('/dataset/type')
+class Datatypes(Resource):
+    """Operations on LOCI Dataset type"""
+    @ns.doc('get_dataset_types', params=OrderedDict([
+        ("datasetUri", {"description": "Filter by dataset URI",
+                    "required": False, "type": "string"}),
+        ("type", {"description": "Filter by dataset type URI",
+                    "required": False, "type": "string"}),
+        ("basetype", {"description": "Filter by dataset type URI",
+                    "required": False, "type": "boolean", "default": False}),
+        ("count", {"description": "Number of dataset types to return.",
+                   "required": False, "type": "number", "format": "integer", "default": 1000}),
+        ("offset", {"description": "Skip number of dataset types before returning count.",
+                    "required": False, "type": "number", "format": "integer", "default": 0}),
+    ]), security=None)
+    async def get(self, request, *args, **kwargs):
+        """Gets all LOCI Dataset Types"""
+        if 'datasetUri'  in request.args:
+            datasetUri = str(next(iter(request.args.getlist('datasetUri'))))
+        else:
+            datasetUri = None
+        if 'type'  in request.args:
+            datasetType = str(next(iter(request.args.getlist('type'))))
+        else:
+            datasetType = None
+        basetype = str2bool(next(iter(request.args.getlist('basetype', [False]))))
+        count = int(next(iter(request.args.getlist('count', [1000]))))
+        offset = int(next(iter(request.args.getlist('offset', [0]))))
+        meta, dataset_types = await get_dataset_types(datasetUri, datasetType, basetype, count, offset)
+        response = {
+            "meta": meta,
+            "datasets": dataset_types,
         }
         return json(response, status=200)
 
