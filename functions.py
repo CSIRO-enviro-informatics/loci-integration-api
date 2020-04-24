@@ -68,11 +68,11 @@ def get_to_base_unit_and_type_prefix(from_uri, query_uri):
                 return base_unit_prefix, resource_type_prefix
     return base_unit_prefix, resource_type_prefix
 
-async def get_all_overlaps(target_uri, output_featuretype_uri, linksets_filter, include_areas=True, include_proportion=True, include_contains=True, include_within=True):
+async def get_all_overlaps(target_uri, output_featuretype_uri, linksets_filter, include_areas=True, include_proportion=True, include_contains=True, include_within=True, includes_partial_overlaps=True):
     offset = 0
     all_overlaps = []
     while True:
-        results = list(await get_location_overlaps(target_uri, output_featuretype_uri, include_areas, include_proportion, include_within, include_contains, linksets_filter, count=100000, offset=offset))
+        results = list(await get_location_overlaps(target_uri, output_featuretype_uri, include_areas, include_proportion, include_within, include_contains, linksets_filter, count=100000, offset=offset, includes_partial_overlaps=includes_partial_overlaps))
         length = results[0]['count']
         if "featureArea" in results[0].keys():
             my_area = results[0]['featureArea']
@@ -84,6 +84,7 @@ async def get_all_overlaps(target_uri, output_featuretype_uri, linksets_filter, 
         offset += 100000
     return my_area, all_overlaps
 
+counter = 0
 async def query_graphdb_endpoint(sparql, infer=True, same_as=True, limit=1000, offset=0):
     """
     Pass the SPARQL query to the endpoint. The endpoint is specified in the config file.
@@ -101,6 +102,9 @@ async def query_graphdb_endpoint(sparql, infer=True, same_as=True, limit=1000, o
     :return:
     :rtype: dict
     """
+    global counter
+    counter = counter + 1
+    print(counter)
     loop = asyncio.get_event_loop()
     try:
         session = query_graphdb_endpoint.session_cache[loop]
@@ -672,7 +676,7 @@ async def get_location_overlaps_crosswalk_base_uri(found_parents, parent_amount,
     return my_area
 
 
-async def get_location_overlaps(target_uri, output_featuretype_uri, include_areas, include_proportion, include_within, include_contains, linksets_filter=None, count=1000, offset=0):
+async def get_location_overlaps(target_uri, output_featuretype_uri, include_areas, include_proportion, include_within, include_contains, linksets_filter=None, count=1000, offset=0, includes_partial_overlaps=True):
     """
     :param target_uri:
     :type target_uri: str
@@ -687,6 +691,7 @@ async def get_location_overlaps(target_uri, output_featuretype_uri, include_area
     :type offset: int
     :return:
     """
+    print("doing overlaps queries")
     overlaps_sparql = """\
 PREFIX geo: <http://www.opengis.net/ont/geosparql#>
 PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
@@ -821,20 +826,22 @@ GROUP BY ?o
     if use_proportion_sparql:
         extras += iarea_sparql
         use_selects += iarea_selects
-    sparql = overlaps_sparql.replace("<SELECTS>", use_selects)
-    sparql = sparql.replace("<EXTRAS>", extras)
-    sparql = sparql.replace("<URI>", "<{}>".format(str(target_uri)))
-    if not linksets_filter is None:
-        sparql = sparql.replace("<LINKSET_FILTER>", "ipo: <{}> ;".format(str(linksets_filter)))
-    else:
-        sparql = sparql.replace("<LINKSET_FILTER>", "")
     overlaps = []
     bindings = []
-    if not linksets_filter is None:
-        sparql = sparql.replace("<LINKSET_FILTER>", "ipo: <{}> ;".format(str(linksets_filter)))
-    else:
-        sparql = sparql.replace("<LINKSET_FILTER>", "")
-    await query_build_response_bindings(sparql, count, offset, bindings)
+    if includes_partial_overlaps:
+        sparql = overlaps_sparql.replace("<SELECTS>", use_selects)
+        sparql = sparql.replace("<EXTRAS>", extras)
+        sparql = sparql.replace("<URI>", "<{}>".format(str(target_uri)))
+        if not linksets_filter is None:
+            sparql = sparql.replace("<LINKSET_FILTER>", "ipo: <{}> ;".format(str(linksets_filter)))
+        else:
+            sparql = sparql.replace("<LINKSET_FILTER>", "")
+        if not linksets_filter is None:
+            sparql = sparql.replace("<LINKSET_FILTER>", "ipo: <{}> ;".format(str(linksets_filter)))
+        else:
+            sparql = sparql.replace("<LINKSET_FILTER>", "")
+        print("overlaps")
+        await query_build_response_bindings(sparql, count, offset, bindings)
     extras = ""
     #print(sparql)
     if include_contains:
@@ -849,6 +856,7 @@ GROUP BY ?o
             sparql = sparql.replace("<LINKSET_FILTER>", "ipo: <{}> ;".format(str(linksets_filter)))
         else:
             sparql = sparql.replace("<LINKSET_FILTER>", "")
+        print("contains")
         await query_build_response_bindings(sparql, count, offset, bindings)
         extras = ""
     if include_within:
@@ -863,7 +871,9 @@ GROUP BY ?o
             sparql = sparql.replace("<LINKSET_FILTER>", "ipo: <{}> ;".format(str(linksets_filter)))
         else:
             sparql = sparql.replace("<LINKSET_FILTER>", "")
+        print("within")
         await query_build_response_bindings(sparql, count, offset, bindings)
+        print("finished within")
     #print(sparql)
     if len(bindings) < 1:
         return {'count': 0, 'offset': offset}, overlaps
@@ -934,6 +944,7 @@ GROUP BY ?o
     final_overlaps = overlaps
     if output_featuretype_uri is not None:
         final_overlaps = []
+        print('filtering')
         for an_overlap in overlaps:
                 if isinstance(an_overlap, str):
                     uri_to_check = an_overlap
@@ -942,6 +953,7 @@ GROUP BY ?o
                 type_match = await check_type(uri_to_check, output_featuretype_uri)
                 if type_match:
                    final_overlaps.append(an_overlap)
+    print("finished doing overlaps queries")
     return meta, final_overlaps
 
 
