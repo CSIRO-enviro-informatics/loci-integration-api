@@ -6,7 +6,7 @@ from sanic.request import Request
 from sanic.exceptions import ServiceUnavailable
 from sanic_restplus import Api, Resource, fields
 from functions import get_linksets, get_datasets, get_locations, get_location_is_within, get_location_contains, get_resource, get_location_overlaps_crosswalk, get_location_overlaps, get_at_location, search_location_by_label
-from functions_DGGS import find_dggs_by_loci_uri
+from functions_DGGS import find_dggs_by_loci_uri, find_at_dggs_cell
 
 url_prefix = '/v1'
 
@@ -275,7 +275,7 @@ class to_DGGS(Resource):
                     "required": True, "type": "string"}),
     ]), security=None)
     async def get(self, request, *args, **kwargs):
-        """Calls search engine to query LOCI Locations by label"""
+        """Calls DGGS table to query DGGS cells by loci uri"""
         print(request.args)
         query = str(next(iter(request.args.getlist('uri'))))
         result = await find_dggs_by_loci_uri(query)
@@ -285,13 +285,13 @@ class to_DGGS(Resource):
 class find_at_DGGS_cell(Resource):
     """Function for finding an array of Loci-i Features by a DGGS cell ID"""
 
-    @ns.doc('find_loci-features_by_dggs', params=OrderedDict([
-        ("dggs_cell", {"description": "Search loci features by loci uri",
+    @ns.doc('find_at_dggs_cell', params=OrderedDict([
+        ("dggs_cell", {"description": "Search loci features by DGGS cell ID, eg: S3006887558",
                     "required": True, "type": "string"}),
     ]), security=None)
     async def get(self, request, *args, **kwargs):
-        """Calls search engine to query LOCI Locations by label"""
-        query = str(next(iter(request.args.getlist('query'))))
-        result = await search_location_by_label(query)
-        response = result
-        return json(response, status=200)
+        """Calls DGGS table to query loci features by DGGS cell ID"""
+        dggs_cell = str(next(iter(request.args.getlist('dggs_cell'))))
+        result = await find_at_dggs_cell(dggs_cell)
+        print(result)
+        return json(result, status=200)
