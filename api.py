@@ -6,7 +6,7 @@ from sanic.request import Request
 from sanic.exceptions import ServiceUnavailable
 from sanic_restplus import Api, Resource, fields
 
-from functions import get_linksets, get_datasets, get_dataset_types, get_locations, get_location_is_within, get_location_contains, get_resource, get_location_overlaps_crosswalk, get_location_overlaps, get_at_location, search_location_by_label
+from functions import check_type, get_linksets, get_datasets, get_dataset_types, get_locations, get_location_is_within, get_location_contains, get_resource, get_location_overlaps_crosswalk, get_location_overlaps, get_at_location, search_location_by_label
 from functools import reduce 
 
 
@@ -250,10 +250,14 @@ class Overlaps(Resource):
                 resource = await get_resource(target_uri)
                 input_featuretype_uri = resource["http://www.w3.org/1999/02/22-rdf-syntax-ns#type"] 
                 meta, base_dataset_types = await get_dataset_types(None, None, True, None, None)
+                output_is_base_type = False 
                 for dataset_type in base_dataset_types:
                     base_dataset_type_uri = dataset_type['uri']
+                    if output_featuretype_uri == base_dataset_type_uri:
+                        output_is_base_type = True
                     found_input = False
                     found_output = False 
+                    dataset_type['withinTypes'].append(base_dataset_type_uri)
                     for withinType in dataset_type['withinTypes']:
                         if withinType == input_featuretype_uri:
                             found_input = True
@@ -261,7 +265,9 @@ class Overlaps(Resource):
                             found_output = True
                     if found_input and found_output:
                         common_base_dataset_type_uri = base_dataset_type_uri
-            if common_base_dataset_type_uri:
+                        break
+            if common_base_dataset_type_uri is not None:
+                print("Common " + common_base_dataset_type_uri)
                 output_hits = {}
                 output_details = {}
                 meta, input_overlaps_to_base_unit =  await get_location_overlaps(target_uri, None, True, True, False,
@@ -273,16 +279,24 @@ class Overlaps(Resource):
                     acounter = acounter+1
                     print("Finder loop  " + str(acounter))
                     base_uri = base_result['uri']
-                    meta, base_unit_overlaps_to_output = await get_location_overlaps(base_uri, None, True, True, True,
-                                                        False, None, count, offset, False)
-                    #if (len(base_unit_overlaps_to_output) > 1):
-                    #    raise Exception("Joining base unit had more than one parent of the same type as " + output_featuretype_uri)
-                    for output in base_unit_overlaps_to_output:
-                        output_uri = output['uri']
+                    if output_is_base_type:
+                        print("Output is base " + str(acounter))
+                        output_uri = base_result['uri'] 
                         if not output_uri in output_hits.keys():
                             output_hits[output_uri] = []
                         output_hits[output_uri].append(base_result) 
-                        output_details[output_uri] = output 
+                        output_details[output_uri] = base_result 
+                    else:
+                        meta, base_unit_overlaps_to_output = await get_location_overlaps(base_uri, None, True, True, True,
+                                                            False, None, count, offset, False)
+                        #if (len(base_unit_overlaps_to_output) > 1):
+                        #    raise Exception("Joining base unit had more than one parent of the same type as " + output_featuretype_uri)
+                        for output in base_unit_overlaps_to_output:
+                            output_uri = output['uri']
+                            if not output_uri in output_hits.keys():
+                                output_hits[output_uri] = []
+                            output_hits[output_uri].append(base_result) 
+                            output_details[output_uri] = output 
                 outputs = [] 
                 for output_uri in output_hits.keys(): 
                     output  = {} 
@@ -299,7 +313,12 @@ class Overlaps(Resource):
                         output['reversePercentage'] = (float(output['intersection_area'])  / float(output['featureArea'])) * 100
                     outputs.append(output)
                 res_length = len(outputs) 
-                meta, overlaps = { 'count' : len(outputs), 'offset' : 0, 'featureArea' : input_uri_area}, outputs
+                filtered_outputs = []
+                for output in outputs:
+                    if await check_type(output['uri'], output_featuretype_uri):
+                        filtered_outputs.append(output)
+
+                meta, overlaps = { 'count' : len(filtered_outputs), 'offset' : 0, 'featureArea' : input_uri_area}, filtered_outputs 
             else:
                 meta, overlaps = await get_location_overlaps_crosswalk(target_uri, output_featuretype_uri, include_areas, include_proportion, include_within,
                                                         include_contains, count, offset)
