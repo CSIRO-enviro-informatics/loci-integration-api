@@ -8,7 +8,9 @@ from config import TRIPLESTORE_CACHE_SPARQL_ENDPOINT
 from config import ES_ENDPOINT
 from config import GEOM_DATA_SVC_ENDPOINT
 from config import LOCI_DATATYPES_STATIC_JSON
-
+from json import JSONDecodeError
+import logging
+import math
 from json import loads
 
 from errors import ReportableAPIError
@@ -104,7 +106,6 @@ async def query_graphdb_endpoint(sparql, infer=True, same_as=True, limit=1000, o
     """
     global counter
     counter = counter + 1
-    print(counter)
     loop = asyncio.get_event_loop()
     try:
         session = query_graphdb_endpoint.session_cache[loop]
@@ -124,7 +125,11 @@ async def query_graphdb_endpoint(sparql, infer=True, same_as=True, limit=1000, o
     }
     resp = await session.request('POST', TRIPLESTORE_CACHE_SPARQL_ENDPOINT, data=args, headers=headers)
     resp_content = await resp.text()
-    return loads(resp_content)
+    try:
+        return loads(resp_content)
+    except JSONDecodeError as e:
+        logging.error("Bad response querying {0}".format(sparql))
+        raise 
 query_graphdb_endpoint.session_cache = {}
 
 async def check_type(target_uri, output_featuretype_uri):
@@ -268,7 +273,6 @@ WHERE {
         'count': len(linksets),
         'offset': offset,
     }
-    print(meta)
     return meta, linksets
 
 async def get_datasets(count=1000, offset=0):
@@ -691,7 +695,6 @@ async def get_location_overlaps(target_uri, output_featuretype_uri, include_area
     :type offset: int
     :return:
     """
-    print("doing overlaps queries")
     overlaps_sparql = """\
 PREFIX geo: <http://www.opengis.net/ont/geosparql#>
 PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
@@ -856,7 +859,6 @@ GROUP BY ?o
             sparql = sparql.replace("<LINKSET_FILTER>", "ipo: <{}> ;".format(str(linksets_filter)))
         else:
             sparql = sparql.replace("<LINKSET_FILTER>", "")
-        print("contains")
         await query_build_response_bindings(sparql, count, offset, bindings)
         extras = ""
     if include_within:
@@ -871,9 +873,7 @@ GROUP BY ?o
             sparql = sparql.replace("<LINKSET_FILTER>", "ipo: <{}> ;".format(str(linksets_filter)))
         else:
             sparql = sparql.replace("<LINKSET_FILTER>", "")
-        print("within")
         await query_build_response_bindings(sparql, count, offset, bindings)
-        print("finished within")
     #print(sparql)
     if len(bindings) < 1:
         return {'count': 0, 'offset': offset}, overlaps
@@ -886,8 +886,10 @@ GROUP BY ?o
         try:
             uarea = bindings[0]['uarea']
         except (LookupError, AttributeError):
-            raise ReportableAPIError("Source feature does not have a known geometry area."
-                                     "Cannot return areas or calculate proportions.")
+            uarea = {}
+            uarea['value'] = math.nan 
+            logging.warning("Source feature {0} does not have a known geometry area."
+                                     "Cannot return areas or calculate proportions.".format(target_uri))
         my_area = round(Decimal(uarea['value']), 8)
         for b in bindings:
             o_dict = {"uri": b['o']['value']}
@@ -908,7 +910,9 @@ GROUP BY ?o
             try:
                 oarea = b['oarea']
             except (LookupError, AttributeError):
-                continue
+                b['oarea'] = {}
+                b['oarea']['value'] = math.nan
+                oarea = b['oarea'] 
             o_area = round(Decimal(oarea['value']), 8)
             if include_areas:
                 o_dict['featureArea'] = str(o_area)
@@ -944,7 +948,6 @@ GROUP BY ?o
     final_overlaps = overlaps
     if output_featuretype_uri is not None:
         final_overlaps = []
-        print('filtering')
         for an_overlap in overlaps:
                 if isinstance(an_overlap, str):
                     uri_to_check = an_overlap
@@ -953,7 +956,6 @@ GROUP BY ?o
                 type_match = await check_type(uri_to_check, output_featuretype_uri)
                 if type_match:
                    final_overlaps.append(an_overlap)
-    print("finished doing overlaps queries")
     return meta, final_overlaps
 
 

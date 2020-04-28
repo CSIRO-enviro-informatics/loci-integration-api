@@ -251,10 +251,13 @@ class Overlaps(Resource):
                 input_featuretype_uri = resource["http://www.w3.org/1999/02/22-rdf-syntax-ns#type"] 
                 meta, base_dataset_types = await get_dataset_types(None, None, True, None, None)
                 output_is_base_type = False 
+                input_is_base_type = False 
                 for dataset_type in base_dataset_types:
                     base_dataset_type_uri = dataset_type['uri']
                     if output_featuretype_uri == base_dataset_type_uri:
                         output_is_base_type = True
+                    if input_featuretype_uri == base_dataset_type_uri:
+                        input_is_base_type = True
                     found_input = False
                     found_output = False 
                     dataset_type['withinTypes'].append(base_dataset_type_uri)
@@ -267,20 +270,21 @@ class Overlaps(Resource):
                         common_base_dataset_type_uri = base_dataset_type_uri
                         break
             if common_base_dataset_type_uri is not None:
-                print("Common " + common_base_dataset_type_uri)
                 output_hits = {}
                 output_details = {}
-                meta, input_overlaps_to_base_unit =  await get_location_overlaps(target_uri, None, True, True, False,
-                                                        True, None, count, offset)
-                input_uri_area = meta["featureArea"]
-                print(len(input_overlaps_to_base_unit))
+                if input_is_base_type:
+                    resource = await get_resource(target_uri)
+                    input_uri_area = resource["http://linked.data.gov.au/def/geox#hasAreaM2"]["http://linked.data.gov.au/def/datatype/value"]
+                    input_overlaps_to_base_unit=[{'uri': target_uri, 'featureArea': input_uri_area}]
+                else:
+                    meta, input_overlaps_to_base_unit =  await get_location_overlaps(target_uri, None, True, True, False,
+                                                            True, common_base_dataset_type_uri, count, offset)
+                    input_uri_area = meta["featureArea"]
                 acounter = 0
                 for base_result in input_overlaps_to_base_unit:
                     acounter = acounter+1
-                    print("Finder loop  " + str(acounter))
                     base_uri = base_result['uri']
                     if output_is_base_type:
-                        print("Output is base " + str(acounter))
                         output_uri = base_result['uri'] 
                         if not output_uri in output_hits.keys():
                             output_hits[output_uri] = []
@@ -320,6 +324,7 @@ class Overlaps(Resource):
 
                 meta, overlaps = { 'count' : len(filtered_outputs), 'offset' : 0, 'featureArea' : input_uri_area}, filtered_outputs 
             else:
+                print("Regular overlaps")
                 meta, overlaps = await get_location_overlaps_crosswalk(target_uri, output_featuretype_uri, include_areas, include_proportion, include_within,
                                                         include_contains, count, offset)
         else:
