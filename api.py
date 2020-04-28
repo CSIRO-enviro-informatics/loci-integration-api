@@ -244,14 +244,20 @@ class Overlaps(Resource):
         include_within = include_within[0] in TRUTHS
         crosswalk = crosswalk[0] in TRUTHS
         if crosswalk:
-            # check if the crosswalk is between stuff with a common base unit and not via linksets across hetrogenous base unit hierarchies
+            # check if the crosswalk is between stuff with a common base unit and not across hetrogenous base unit hierarchies i.e via linksets 
             common_base_dataset_type_uri = None 
+            # an output feature type allows searches to be restricted to common base units if other conditions are met
             if output_featuretype_uri is not None: 
                 resource = await get_resource(target_uri)
                 input_featuretype_uri = resource["http://www.w3.org/1999/02/22-rdf-syntax-ns#type"] 
+                # get all the common base units in loci
                 meta, base_dataset_types = await get_dataset_types(None, None, True, None, None)
+                # place holders for special cases were target_uri or output_featuretype_uri is itself a base unit 
                 output_is_base_type = False 
                 input_is_base_type = False 
+                # iterate through the common base units and look at the hierarchies of things that use those base units
+                # figure out whether both the target_uri type and output_featuretype_uri belong to the same hierarchy
+                # if so note the common_base_dataset_type_uri that joings them
                 for dataset_type in base_dataset_types:
                     base_dataset_type_uri = dataset_type['uri']
                     if output_featuretype_uri == base_dataset_type_uri:
@@ -269,33 +275,40 @@ class Overlaps(Resource):
                     if found_input and found_output:
                         common_base_dataset_type_uri = base_dataset_type_uri
                         break
+            # if a common_base_dataset_type_uri was found then we can shortcut search just via base units and contains / within propoerties
+            # i.e there are no fundamental overlaps
             if common_base_dataset_type_uri is not None:
+                # if a common
                 output_hits = {}
                 output_details = {}
                 if input_is_base_type:
+                    # special case is the target_uri was alread a base type so don't need to find them
                     resource = await get_resource(target_uri)
                     input_uri_area = resource["http://linked.data.gov.au/def/geox#hasAreaM2"]["http://linked.data.gov.au/def/datatype/value"]
                     input_overlaps_to_base_unit=[{'uri': target_uri, 'featureArea': input_uri_area}]
                 else:
+                    # find base unit by searching from target URI for things within it which are of the common_base_dataset_type_uri     
                     meta, input_overlaps_to_base_unit =  await get_location_overlaps(target_uri, None, True, True, False,
                                                             True, common_base_dataset_type_uri, count, offset)
                     input_uri_area = meta["featureArea"]
                 acounter = 0
                 for base_result in input_overlaps_to_base_unit:
+                    # for all the common base units
                     acounter = acounter+1
                     base_uri = base_result['uri']
                     if output_is_base_type:
+                        # special case where we just wanted these base units as the result
                         output_uri = base_result['uri'] 
                         if not output_uri in output_hits.keys():
                             output_hits[output_uri] = []
                         output_hits[output_uri].append(base_result) 
                         output_details[output_uri] = base_result 
                     else:
+                        # look up the hierarchy for everything that contains these base units
                         meta, base_unit_overlaps_to_output = await get_location_overlaps(base_uri, None, True, True, True,
                                                             False, None, count, offset, False)
-                        #if (len(base_unit_overlaps_to_output) > 1):
-                        #    raise Exception("Joining base unit had more than one parent of the same type as " + output_featuretype_uri)
                         for output in base_unit_overlaps_to_output:
+                            # note details of things up the hierarchy
                             output_uri = output['uri']
                             if not output_uri in output_hits.keys():
                                 output_hits[output_uri] = []
@@ -303,6 +316,7 @@ class Overlaps(Resource):
                             output_details[output_uri] = output 
                 outputs = [] 
                 for output_uri in output_hits.keys(): 
+                    # for each of the output things figure out areas of the target_uri overlapping via sums of base units
                     output  = {} 
                     output['uri'] = output_uri 
                     output_detail = output_details[output_uri]
@@ -319,6 +333,7 @@ class Overlaps(Resource):
                 res_length = len(outputs) 
                 filtered_outputs = []
                 for output in outputs:
+                    # filter outputs to just the target type we want
                     if await check_type(output['uri'], output_featuretype_uri):
                         filtered_outputs.append(output)
 
