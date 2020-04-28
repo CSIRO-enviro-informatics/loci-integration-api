@@ -843,7 +843,6 @@ GROUP BY ?o
             sparql = sparql.replace("<LINKSET_FILTER>", "ipo: <{}> ;".format(str(linksets_filter)))
         else:
             sparql = sparql.replace("<LINKSET_FILTER>", "")
-        print("overlaps")
         await query_build_response_bindings(sparql, count, offset, bindings)
     extras = ""
     #print(sparql)
