@@ -324,7 +324,6 @@ class Overlaps(Resource):
 
                 meta, overlaps = { 'count' : len(filtered_outputs), 'offset' : 0, 'featureArea' : input_uri_area}, filtered_outputs 
             else:
-                print("Regular overlaps")
                 meta, overlaps = await get_location_overlaps_crosswalk(target_uri, output_featuretype_uri, include_areas, include_proportion, include_within,
                                                         include_contains, count, offset)
         else:
