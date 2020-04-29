@@ -19,10 +19,10 @@ ES_ENDPOINT = CONFIG["ES_ENDPOINT"] = \
 
 GEOM_DATA_SVC_ENDPOINT = CONFIG["GEOM_DATA_SVC_ENDPOINT"] = "https://gds.loci.cat"
 
-PG_HOST = 'location-index.cx6rhroaeuxv.ap-southeast-2.rds.amazonaws.com'
-PG_PORT = '5432'
-PG_DB_NAME = 'postgres'
-PG_USER = 'govreadonly'
-PG_PASSWORD = 'lociauspixdggs10'
+PG_HOST = os.environ.get('PG_HOST')
+PG_PORT = os.environ.get('PG_PORT')
+PG_DB_NAME = os.environ.get('PG_DB_NAME')
+PG_USER = os.environ.get('PG_USER')
+PG_PASSWORD = os.environ.get('PG_PASSWORD')
 
 PG_ENDPOINT = f'host={PG_HOST} port={PG_PORT} dbname={PG_DB_NAME} user={PG_USER} password={PG_PASSWORD}'
