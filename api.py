@@ -289,7 +289,7 @@ class Overlaps(Resource):
                 else:
                     # find base unit by searching from target URI for things within it which are of the common_base_dataset_type_uri     
                     meta, input_overlaps_to_base_unit =  await get_location_overlaps(target_uri, None, True, True, False,
-                                                            True, common_base_dataset_type_uri, count, offset)
+                                                            True, common_base_dataset_type_uri, 1000000000, 0)
                     input_uri_area = meta["featureArea"]
                 acounter = 0
                 for base_result in input_overlaps_to_base_unit:
@@ -306,7 +306,7 @@ class Overlaps(Resource):
                     else:
                         # look up the hierarchy for everything that contains these base units
                         meta, base_unit_overlaps_to_output = await get_location_overlaps(base_uri, None, True, True, True,
-                                                            False, None, count, offset, False)
+                                                            False, None, 1000000000, 0, False)
                         for output in base_unit_overlaps_to_output:
                             # note details of things up the hierarchy
                             output_uri = output['uri']
