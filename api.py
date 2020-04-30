@@ -5,6 +5,7 @@ from sanic.response import json, text, HTTPResponse
 from sanic.request import Request
 from sanic.exceptions import ServiceUnavailable
 from sanic_restplus import Api, Resource, fields
+import re
 
 from functions import get_linksets, get_datasets, get_dataset_types, get_locations, get_location_is_within, get_location_contains, get_resource, get_location_overlaps_crosswalk, get_location_overlaps, get_at_location, search_location_by_label
 from functions_DGGS import find_dggs_by_loci_uri, find_at_dggs_cell
@@ -317,10 +318,13 @@ class to_DGGS(Resource):
     ]), security=None)
     async def get(self, request, *args, **kwargs):
         """Calls DGGS table to query DGGS cells by loci uri"""
-        print(request.args)
         query = str(next(iter(request.args.getlist('uri'))))
-        result = await find_dggs_by_loci_uri(query)
-        return json(result, status=200)
+        meta, dggs_results = await find_dggs_by_loci_uri(query)
+        response = {
+            "meta": meta,
+            "locations": dggs_results,
+        }
+        return json(response, status=200)
 
 @ns_loc_func.route('/find-at-DGGS-cell')
 class find_at_DGGS_cell(Resource):
@@ -333,6 +337,13 @@ class find_at_DGGS_cell(Resource):
     async def get(self, request, *args, **kwargs):
         """Calls DGGS table to query loci features by DGGS cell ID"""
         dggs_cell = str(next(iter(request.args.getlist('dggs_cell'))))
-        result = await find_at_dggs_cell(dggs_cell)
-        print(result)
-        return json(result, status=200)
+        p = re.compile('^[RSrs][0-9]+$')
+        if(p.match(dggs_cell)):
+            meta, locations = await find_at_dggs_cell(dggs_cell)
+            response = {
+                "meta": meta,
+                "locations": locations,
+            }
+            return json(response, status=200)
+        else:
+            return json({"error": "Wrong DGGS cell"}, status=400)
