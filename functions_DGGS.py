@@ -58,8 +58,8 @@ async def find_dggs_by_loci_uri(uri):
     for lookup_key, lookup_value in DGGS_COLUMN_LOOKUP.items():
         index = uri.find(lookup_key)
         if index==0:
-            dggs_column = lookup_value
-            uri_value = uri[len(lookup_key):len(uri)][1]
+            dggs_column = lookup_value[1]
+            uri_value = uri[len(lookup_key):len(uri)]
             break
     sql = f'select auspix_dggs from public."MainTable01" where {dggs_column}=\'{uri_value}\''
     conn = psycopg2.connect(PG_ENDPOINT)
