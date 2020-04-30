@@ -7,7 +7,7 @@ from sanic.exceptions import ServiceUnavailable
 from sanic_restplus import Api, Resource, fields
 
 from functions import get_linksets, get_datasets, get_dataset_types, get_locations, get_location_is_within, get_location_contains, get_resource, get_location_overlaps_crosswalk, get_location_overlaps, get_at_location, search_location_by_label
-from functions_DGGS import find_dggs_by_loci_uri, find_at_dggs_cell
+
 
 url_prefix = '/v1'
 
@@ -306,33 +306,3 @@ class Search(Resource):
         result = await search_location_by_label(query)
         response = result
         return json(response, status=200)
-
-@ns_loc_func.route('/to-DGGS')
-class to_DGGS(Resource):
-    """Function for finding an array of DGGS cells by a loci uri"""
-
-    @ns.doc('find_dggs_by_loci_uri', params=OrderedDict([
-        ("uri", {"description": "Search DGGS cells by loci uri",
-                    "required": True, "type": "string"}),
-    ]), security=None)
-    async def get(self, request, *args, **kwargs):
-        """Calls DGGS table to query DGGS cells by loci uri"""
-        print(request.args)
-        query = str(next(iter(request.args.getlist('uri'))))
-        result = await find_dggs_by_loci_uri(query)
-        return json(result, status=200)
-
-@ns_loc_func.route('/find-at-DGGS-cell')
-class find_at_DGGS_cell(Resource):
-    """Function for finding an array of Loci-i Features by a DGGS cell ID"""
-
-    @ns.doc('find_at_dggs_cell', params=OrderedDict([
-        ("dggs_cell", {"description": "Search loci features by DGGS cell ID, eg: S3006887558",
-                    "required": True, "type": "string"}),
-    ]), security=None)
-    async def get(self, request, *args, **kwargs):
-        """Calls DGGS table to query loci features by DGGS cell ID"""
-        dggs_cell = str(next(iter(request.args.getlist('dggs_cell'))))
-        result = await find_at_dggs_cell(dggs_cell)
-        print(result)
-        return json(result, status=200)

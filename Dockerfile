@@ -1,8 +1,7 @@
 FROM sanicframework/sanic:LTS AS base
 
 WORKDIR /usr/src/app
-RUN apk update && \
-    apk add postgresql-dev
+
 COPY . .
 RUN pip install -U setuptools pip
 RUN apk add --no-cache git
