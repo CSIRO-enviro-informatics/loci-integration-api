@@ -958,12 +958,14 @@ GROUP BY ?o
     return meta, final_overlaps
 
 
-async def get_at_location(lat, lon, loci_type="any", count=1000, offset=0):
+async def get_at_location(lat, lon, loci_type="any", crs=4326, count=1000, offset=0):
     """
     :param lat:
     :type lat: float
     :param lon:
     :type lon: float
+    :param crs:
+    :type crs: int
     :param count:
     :type count: int
     :param offset:
@@ -980,7 +982,8 @@ async def get_at_location(lat, lon, loci_type="any", count=1000, offset=0):
     results = {}
     counter = 0
     params = {
-       "_format" : "application/json"
+       "_format" : "application/json",
+       "crs": crs
     }
     formatted_resp = {
         'ok': False
