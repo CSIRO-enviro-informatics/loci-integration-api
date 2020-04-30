@@ -22,7 +22,6 @@ from spf import SanicPluginsFramework
 from sanic_restplus.restplus import restplus
 from sanic_cors.extension import cors
 from api import api_v1
-
 HERE_DIR = os.path.dirname(__file__)
 
 import subprocess
