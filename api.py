@@ -337,7 +337,7 @@ class find_at_DGGS_cell(Resource):
     async def get(self, request, *args, **kwargs):
         """Calls DGGS table to query loci features by DGGS cell ID"""
         dggs_cell = str(next(iter(request.args.getlist('dggs_cell'))))
-        p = re.compile('^[RSrs][0-9]+$')
+        p = re.compile('^[N-S][0-9]{10}$')
         if(p.match(dggs_cell)):
             meta, locations = await find_at_dggs_cell(dggs_cell)
             response = {
