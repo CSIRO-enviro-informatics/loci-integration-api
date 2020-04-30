@@ -291,10 +291,8 @@ class Overlaps(Resource):
                     meta, input_overlaps_to_base_unit =  await get_location_overlaps(target_uri, None, True, True, False,
                                                             True, common_base_dataset_type_uri, 1000000000, 0)
                     input_uri_area = meta["featureArea"]
-                acounter = 0
                 for base_result in input_overlaps_to_base_unit:
                     # for all the common base units
-                    acounter = acounter+1
                     base_uri = base_result['uri']
                     if output_is_base_type:
                         # special case where we just wanted these base units as the result
