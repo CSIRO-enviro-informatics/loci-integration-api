@@ -5,7 +5,8 @@ from sanic.response import json, text, HTTPResponse
 from sanic.request import Request
 from sanic.exceptions import ServiceUnavailable
 from sanic_restplus import Api, Resource, fields
-from functions import get_linksets, get_datasets, get_locations, get_location_is_within, get_location_contains, get_resource, get_location_overlaps_crosswalk, get_location_overlaps, get_at_location, search_location_by_label
+
+from functions import get_linksets, get_datasets, get_dataset_types, get_locations, get_location_is_within, get_location_contains, get_resource, get_location_overlaps_crosswalk, get_location_overlaps, get_at_location, search_location_by_label
 from functions_DGGS import find_dggs_by_loci_uri, find_at_dggs_cell
 
 url_prefix = '/v1'
@@ -18,6 +19,9 @@ api_v1 = Api(title="LOCI Integration API",
 ns = api_v1.default_namespace
 
 TRUTHS = ("t", "T", "1")
+
+def str2bool(v):
+   return str(v).lower() in ("yes", "true", "t", "1")
 
 @ns.route('/linksets')
 class Linkset(Resource):
@@ -44,7 +48,6 @@ class Linkset(Resource):
 @ns.route('/datasets')
 class Dataset(Resource):
     """Operations on LOCI Datasets"""
-
     @ns.doc('get_datasets', params=OrderedDict([
         ("count", {"description": "Number of datasets to return.",
                    "required": False, "type": "number", "format": "integer", "default": 1000}),
@@ -59,6 +62,41 @@ class Dataset(Resource):
         response = {
             "meta": meta,
             "datasets": datasets,
+        }
+        return json(response, status=200)
+
+@ns.route('/dataset/type')
+class Datatypes(Resource):
+    """Operations on LOCI Dataset type"""
+    @ns.doc('get_dataset_types', params=OrderedDict([
+        ("datasetUri", {"description": "Filter by dataset URI",
+                    "required": False, "type": "string"}),
+        ("type", {"description": "Filter by dataset type URI",
+                    "required": False, "type": "string"}),
+        ("basetype", {"description": "Filter by dataset type URI",
+                    "required": False, "type": "boolean", "default": False}),
+        ("count", {"description": "Number of dataset types to return.",
+                   "required": False, "type": "number", "format": "integer", "default": 1000}),
+        ("offset", {"description": "Skip number of dataset types before returning count.",
+                    "required": False, "type": "number", "format": "integer", "default": 0}),
+    ]), security=None)
+    async def get(self, request, *args, **kwargs):
+        """Gets all LOCI Dataset Types"""
+        if 'datasetUri'  in request.args:
+            datasetUri = str(next(iter(request.args.getlist('datasetUri'))))
+        else:
+            datasetUri = None
+        if 'type'  in request.args:
+            datasetType = str(next(iter(request.args.getlist('type'))))
+        else:
+            datasetType = None
+        basetype = str2bool(next(iter(request.args.getlist('basetype', [False]))))
+        count = int(next(iter(request.args.getlist('count', [1000]))))
+        offset = int(next(iter(request.args.getlist('offset', [0]))))
+        meta, dataset_types = await get_dataset_types(datasetUri, datasetType, basetype, count, offset)
+        response = {
+            "meta": meta,
+            "datasets": dataset_types,
         }
         return json(response, status=200)
 
@@ -164,7 +202,7 @@ class Contains(Resource):
 class Overlaps(Resource):
     """Function for location Overlaps"""
 
-    @ns.doc('get_location_contains', params=OrderedDict([
+    @ns.doc('get_location_overlaps', params=OrderedDict([
         ("uri", {"description": "Target LOCI Location/Feature URI",
                  "required": True, "type": "string"}),
         ("areas", {"description": "Include areas of overlapping features in m2",
@@ -223,27 +261,30 @@ class Overlaps(Resource):
 class find_at_location(Resource):
     """Function for location find by point"""
 
-    @ns.doc('get_location_contains', params=OrderedDict([
+    @ns.doc('find_at_location', params=OrderedDict([
         ("loci_type", {"latitude": "Loci location type to query, can be 'any', 'mb' for meshblocks or 'cc' for contracted catchments",
                  "required": False, "type": "string", "default":"any"}),
         ("lat", {"latitude": "Query point latitude",
                  "required": True, "type": "number", "format": "float"}),
         ("lon", {"longitude": "Query point longitude",
-                   "required": False, "type": "number", "format": "float"}),
+                   "required": True, "type": "number", "format": "float"}),
+        ("crs", {"crs": "Query point CRS. Default is 4326 (WGS 84)",
+                   "required": False, "type": "number", "format" : "integer", "default": 4326}),
         ("count", {"description": "Number of locations to return.",
                    "required": False, "type": "number", "format": "integer", "default": 1000}),
         ("offset", {"description": "Skip number of locations before returning count.",
                     "required": False, "type": "number", "format": "integer", "default": 0}),
     ]), security=None)
     async def get(self, request, *args, **kwargs):
-        """Gets all LOCI Locations that this target LOCI URI overlaps with\n
+        """Finds all LOCI features that intersect with this location, specified by the coordinates\n
         Note: count and offset do not currently work properly on /overlaps """
         count = int(next(iter(request.args.getlist('count', [1000]))))
         offset = int(next(iter(request.args.getlist('offset', [0]))))
         lon = float(next(iter(request.args.getlist('lon', None))))
         lat = float(next(iter(request.args.getlist('lat', None))))
+        crs = int(next(iter(request.args.getlist('crs', [4326]))))
         loci_type = str(next(iter(request.args.getlist('loci_type', 'mb'))))
-        meta, locations = await get_at_location(lat, lon, loci_type, count, offset)
+        meta, locations = await get_at_location(lat, lon, loci_type, crs, count, offset)
         response = {
             "meta": meta,
             "locations": locations,

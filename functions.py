@@ -7,6 +7,7 @@ from aiohttp.client_exceptions import ClientConnectorError
 from config import TRIPLESTORE_CACHE_SPARQL_ENDPOINT
 from config import ES_ENDPOINT
 from config import GEOM_DATA_SVC_ENDPOINT
+from config import LOCI_DATATYPES_STATIC_JSON
 
 from json import loads
 
@@ -277,11 +278,16 @@ async def get_datasets(count=1000, offset=0):
     """
     sparql = """\
 PREFIX dcat: <http://www.w3.org/ns/dcat#>
+PREFIX loci: <http://linked.data.gov.au/def/loci#>
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
 SELECT DISTINCT ?d
 WHERE {
     {
         ?d a dcat:Dataset .
+    }
+    UNION
+    {
+       ?d a loci:Dataset .
     }
     UNION
     {
@@ -302,6 +308,60 @@ WHERE {
         'offset': offset,
     }
     return meta, datasets
+
+async def get_dataset_types(datasetUri, datasetType, baseType, count=1000, offset=0):
+    """
+    :param datasetUri:
+    :type datasetUri: string 
+    :param datasetType:
+    :type datasetType: string
+    :param baseType:
+    :type baseType: boolean
+    :param offset:
+    :type offset: int
+    :return:
+    """
+    loop = asyncio.get_event_loop()
+    try:
+        gdt_session = get_dataset_types.session_cache[loop]
+    except KeyError:
+        gdt_session = ClientSession(loop=loop)
+        get_dataset_types.session_cache[loop] = gdt_session
+    row = {}
+    results = {}
+    counter = 0
+    params = {
+    }
+    formatted_resp = {
+        'ok': False
+    }
+    http_ok = [200]
+    url = LOCI_DATATYPES_STATIC_JSON
+    try:
+        resp = await gdt_session.request('GET', url, params=params)
+        resp_content = await resp.text()
+        if resp.status not in http_ok:
+            formatted_resp['errorMessage'] = "Could not retrieve datatypes at loci.cat. Error code {}".format(resp.status)
+            return formatted_resp
+        formatted_resp = loads(resp_content)
+    except ClientConnectorError:
+        formatted_resp['errorMessage'] = "Could not connect to retrieve datatypes at loci.cat. Connection error thrown."
+        return formatted_resp
+    if(datasetUri is not None):
+       res = list(filter(lambda i: i['datasetUri'] == datasetUri, formatted_resp)) 
+       formatted_resp = res
+    if datasetType is not None:
+       res = list(filter(lambda i: i['uri'] == datasetType, formatted_resp)) 
+       formatted_resp = res
+    if(baseType == True):
+       res = list(filter(lambda i: ('baseType' in i and i['baseType'] == True), formatted_resp)) 
+       formatted_resp = res
+    meta = {
+        'count': len(formatted_resp),
+        'offset': 0
+    }
+    return meta, formatted_resp
+get_dataset_types.session_cache = {}
 
 async def get_locations(count=1000, offset=0):
     """
@@ -386,6 +446,7 @@ WHERE {
 }
 """
     sparql = sparql.replace("<URI>", "<{}>".format(str(target_uri)))
+    #print(sparql)
     resp = await query_graphdb_endpoint(sparql, limit=count, offset=offset)
     locations = []
     if 'results' not in resp:
@@ -425,6 +486,7 @@ WHERE {
 }
 """
     sparql = sparql.replace("<URI>", "<{}>".format(str(target_uri)))
+    #print(sparql)
     resp = await query_graphdb_endpoint(sparql, limit=count, offset=offset)
     locations = []
     if 'results' not in resp:
@@ -716,12 +778,12 @@ GROUP BY ?o
     areas_sparql = """\
     OPTIONAL {
         <URI> geox:hasAreaM2 ?ha1 .
-        ?ha1 qb4st:crs epsg:3577 .
+        ?ha1 geox:inCRS epsg:3577 .
         ?ha1 dt:value ?a1 .
     }
     OPTIONAL {
         ?o geox:hasAreaM2 ?ha2 .
-        ?ha2 qb4st:crs epsg:3577 .
+        ?ha2 geox:inCRS epsg:3577 .
         ?ha2 dt:value ?a2 .
     }
     """
@@ -746,7 +808,7 @@ GROUP BY ?o
         } .
         OPTIONAL {
             ?i geox:hasAreaM2 ?ha3 .
-            ?ha3 qb4st:crs epsg:3577 .
+            ?ha3 geox:inCRS epsg:3577 .
             ?ha3 dt:value ?a3 .
         }
     }
@@ -774,6 +836,7 @@ GROUP BY ?o
         sparql = sparql.replace("<LINKSET_FILTER>", "")
     await query_build_response_bindings(sparql, count, offset, bindings)
     extras = ""
+    #print(sparql)
     if include_contains:
         use_selects = selects
         if use_areas_sparql:
@@ -801,6 +864,7 @@ GROUP BY ?o
         else:
             sparql = sparql.replace("<LINKSET_FILTER>", "")
         await query_build_response_bindings(sparql, count, offset, bindings)
+    #print(sparql)
     if len(bindings) < 1:
         return {'count': 0, 'offset': offset}, overlaps
     if not include_proportion and not include_areas:
@@ -881,12 +945,14 @@ GROUP BY ?o
     return meta, final_overlaps
 
 
-async def get_at_location(lat, lon, loci_type="any", count=1000, offset=0):
+async def get_at_location(lat, lon, loci_type="any", crs=4326, count=1000, offset=0):
     """
     :param lat:
     :type lat: float
     :param lon:
     :type lon: float
+    :param crs:
+    :type crs: int
     :param count:
     :type count: int
     :param offset:
@@ -903,7 +969,8 @@ async def get_at_location(lat, lon, loci_type="any", count=1000, offset=0):
     results = {}
     counter = 0
     params = {
-       "_format" : "application/json"
+       "_format" : "application/json",
+       "crs": crs
     }
     formatted_resp = {
         'ok': False
@@ -913,7 +980,6 @@ async def get_at_location(lat, lon, loci_type="any", count=1000, offset=0):
        search_by_latlng_url = GEOM_DATA_SVC_ENDPOINT + "/search/latlng/{},{}".format(lon,lat)
     else:
        search_by_latlng_url = GEOM_DATA_SVC_ENDPOINT + "/search/latlng/{},{}/dataset/{}".format(lon, lat, loci_type)
-
     try:
         resp = await gds_session.request('GET', search_by_latlng_url, params=params)
         resp_content = await resp.text()
