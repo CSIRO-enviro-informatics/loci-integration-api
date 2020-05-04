@@ -22,29 +22,32 @@ from spf import SanicPluginsFramework
 from sanic_restplus.restplus import restplus
 from sanic_cors.extension import cors
 from api import api_v1
-
 HERE_DIR = os.path.dirname(__file__)
 
+import subprocess
+gitlabel = subprocess.check_output(["git", "describe", "--always"]).strip().decode("utf-8")
 
 def create_app():
     app = Sanic(__name__)
     spf = SanicPluginsFramework(app)
     app.config['LOGO'] = r"""
-     _     ___   ____ ___   ___ _   _ _____ _____ ____ ____     _  _____ ___  ____       _    ____ ___ 
+     _     ___   ____ ___   ___ _   _ _____ _____ ____ ____     _  _____ ___  ____       _    ____ ___
     | |   / _ \ / ___|_ _| |_ _| \ | |_   _| ____/ ___|  _ \   / \|_   _/ _ \|  _ \     / \  |  _ |_ _|
-    | |  | | | | |    | |   | ||  \| | | | |  _|| |  _| |_) | / _ \ | || | | | |_) |   / _ \ | |_) | | 
-    | |__| |_| | |___ | |   | || |\  | | | | |__| |_| |  _ < / ___ \| || |_| |  _ <   / ___ \|  __/| | 
-    |_____\___/ \____|___| |___|_| \_| |_| |_____\____|_| \_/_/   \_|_| \___/|_| \_\ /_/   \_|_|  |___|prod
-    """
+    | |  | | | | |    | |   | ||  \| | | | |  _|| |  _| |_) | / _ \ | || | | | |_) |   / _ \ | |_) | |
+    | |__| |_| | |___ | |   | || |\  | | | | |__| |_| |  _ < / ___ \| || |_| |  _ <   / ___ \|  __/| |
+    |_____\___/ \____|___| |___|_| \_| |_| |_____\____|_| \_/_/   \_|_| \___/|_| \_\ /_/   \_|_|  |___|
+    git commit: {}
+    """.format(gitlabel)
     app.config.SWAGGER_UI_DOC_EXPANSION = 'list'
     app.config.RESPONSE_TIMEOUT = 4800
     # Register/Activate Sanic-CORS plugin with allow all origins
     _ = spf.register_plugin(cors, origins=r".*", automatic_options=True)
 
     # Register/Activate Sanic-Restplus plugin
-    restplus_associated = spf.register_plugin(restplus)
+    restplus_associated = spf.register_plugin(restplus, _url_prefix="api")
 
     # Remove any previous apps from the api instance.
+    # (this is needed during testing, the test runner does calls create_app many times)
     api_v1.spf_reg = None
 
     # Register our LOCI Api on the restplus plugin
@@ -54,6 +57,7 @@ def create_app():
     # Note, it is preferred that something like apache or nginx does static file serving in production
     dir_loc = os.path.abspath(os.path.join(HERE_DIR, "static"))
     app.static(uri="/static/", file_or_directory=dir_loc, name="material_swagger")
+
 
     @app.route("/")
     def index(request):
@@ -66,7 +70,10 @@ def create_app():
         :rtype: HTTPResponse
         """
         html = "<h1>LOCI Integration API</h1>\
-        <a href=\"api/v1/doc\">Click here to go to the swaggerui doc page.</a>"
+        <a href=\"api/v1/doc\">Click here to go to the swaggerui doc page.</a>\
+        <pre>Git commit: <a href=\"{prefix}{commit}\">{commit}</a></pre>".format(
+              prefix="https://github.com/CSIRO-enviro-informatics/loci-integration-api/commit/", 
+              commit=str(gitlabel))
         return HTTPResponse(html, status=200, content_type="text/html")
 
     return app

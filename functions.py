@@ -5,9 +5,12 @@ from decimal import Decimal
 from aiohttp import ClientSession
 from aiohttp.client_exceptions import ClientConnectorError
 from config import TRIPLESTORE_CACHE_SPARQL_ENDPOINT
-from config import GEOBASE_ENDPOINT
 from config import ES_ENDPOINT
-
+from config import GEOM_DATA_SVC_ENDPOINT
+from config import LOCI_DATATYPES_STATIC_JSON
+from json import JSONDecodeError
+import logging
+import math
 from json import loads
 
 from errors import ReportableAPIError
@@ -67,11 +70,11 @@ def get_to_base_unit_and_type_prefix(from_uri, query_uri):
                 return base_unit_prefix, resource_type_prefix
     return base_unit_prefix, resource_type_prefix
 
-async def get_all_overlaps(target_uri, output_featuretype_uri, linksets_filter, include_areas=True, include_proportion=True, include_contains=True, include_within=True):
+async def get_all_overlaps(target_uri, output_featuretype_uri, linksets_filter, include_areas=True, include_proportion=True, include_contains=True, include_within=True, includes_partial_overlaps=True):
     offset = 0
     all_overlaps = []
     while True:
-        results = list(await get_location_overlaps(target_uri, output_featuretype_uri, include_areas, include_proportion, include_within, include_contains, linksets_filter, count=100000, offset=offset))
+        results = list(await get_location_overlaps(target_uri, output_featuretype_uri, include_areas, include_proportion, include_within, include_contains, linksets_filter, count=100000, offset=offset, includes_partial_overlaps=includes_partial_overlaps))
         length = results[0]['count']
         if "featureArea" in results[0].keys():
             my_area = results[0]['featureArea']
@@ -83,6 +86,7 @@ async def get_all_overlaps(target_uri, output_featuretype_uri, linksets_filter, 
         offset += 100000
     return my_area, all_overlaps
 
+counter = 0
 async def query_graphdb_endpoint(sparql, infer=True, same_as=True, limit=1000, offset=0):
     """
     Pass the SPARQL query to the endpoint. The endpoint is specified in the config file.
@@ -100,6 +104,8 @@ async def query_graphdb_endpoint(sparql, infer=True, same_as=True, limit=1000, o
     :return:
     :rtype: dict
     """
+    global counter
+    counter = counter + 1
     loop = asyncio.get_event_loop()
     try:
         session = query_graphdb_endpoint.session_cache[loop]
@@ -119,7 +125,11 @@ async def query_graphdb_endpoint(sparql, infer=True, same_as=True, limit=1000, o
     }
     resp = await session.request('POST', TRIPLESTORE_CACHE_SPARQL_ENDPOINT, data=args, headers=headers)
     resp_content = await resp.text()
-    return loads(resp_content)
+    try:
+        return loads(resp_content)
+    except JSONDecodeError as e:
+        logging.error("Bad response querying {0}".format(sparql))
+        raise 
 query_graphdb_endpoint.session_cache = {}
 
 async def check_type(target_uri, output_featuretype_uri):
@@ -263,7 +273,6 @@ WHERE {
         'count': len(linksets),
         'offset': offset,
     }
-    print(meta)
     return meta, linksets
 
 async def get_datasets(count=1000, offset=0):
@@ -277,11 +286,16 @@ async def get_datasets(count=1000, offset=0):
     """
     sparql = """\
 PREFIX dcat: <http://www.w3.org/ns/dcat#>
+PREFIX loci: <http://linked.data.gov.au/def/loci#>
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
 SELECT DISTINCT ?d
 WHERE {
     {
         ?d a dcat:Dataset .
+    }
+    UNION
+    {
+       ?d a loci:Dataset .
     }
     UNION
     {
@@ -302,6 +316,60 @@ WHERE {
         'offset': offset,
     }
     return meta, datasets
+
+async def get_dataset_types(datasetUri, datasetType, baseType, count=1000, offset=0):
+    """
+    :param datasetUri:
+    :type datasetUri: string 
+    :param datasetType:
+    :type datasetType: string
+    :param baseType:
+    :type baseType: boolean
+    :param offset:
+    :type offset: int
+    :return:
+    """
+    loop = asyncio.get_event_loop()
+    try:
+        gdt_session = get_dataset_types.session_cache[loop]
+    except KeyError:
+        gdt_session = ClientSession(loop=loop)
+        get_dataset_types.session_cache[loop] = gdt_session
+    row = {}
+    results = {}
+    counter = 0
+    params = {
+    }
+    formatted_resp = {
+        'ok': False
+    }
+    http_ok = [200]
+    url = LOCI_DATATYPES_STATIC_JSON
+    try:
+        resp = await gdt_session.request('GET', url, params=params)
+        resp_content = await resp.text()
+        if resp.status not in http_ok:
+            formatted_resp['errorMessage'] = "Could not retrieve datatypes at loci.cat. Error code {}".format(resp.status)
+            return formatted_resp
+        formatted_resp = loads(resp_content)
+    except ClientConnectorError:
+        formatted_resp['errorMessage'] = "Could not connect to retrieve datatypes at loci.cat. Connection error thrown."
+        return formatted_resp
+    if(datasetUri is not None):
+       res = list(filter(lambda i: i['datasetUri'] == datasetUri, formatted_resp)) 
+       formatted_resp = res
+    if datasetType is not None:
+       res = list(filter(lambda i: i['uri'] == datasetType, formatted_resp)) 
+       formatted_resp = res
+    if(baseType == True):
+       res = list(filter(lambda i: ('baseType' in i and i['baseType'] == True), formatted_resp)) 
+       formatted_resp = res
+    meta = {
+        'count': len(formatted_resp),
+        'offset': 0
+    }
+    return meta, formatted_resp
+get_dataset_types.session_cache = {}
 
 async def get_locations(count=1000, offset=0):
     """
@@ -386,6 +454,7 @@ WHERE {
 }
 """
     sparql = sparql.replace("<URI>", "<{}>".format(str(target_uri)))
+    #print(sparql)
     resp = await query_graphdb_endpoint(sparql, limit=count, offset=offset)
     locations = []
     if 'results' not in resp:
@@ -425,6 +494,7 @@ WHERE {
 }
 """
     sparql = sparql.replace("<URI>", "<{}>".format(str(target_uri)))
+    #print(sparql)
     resp = await query_graphdb_endpoint(sparql, limit=count, offset=offset)
     locations = []
     if 'results' not in resp:
@@ -610,7 +680,7 @@ async def get_location_overlaps_crosswalk_base_uri(found_parents, parent_amount,
     return my_area
 
 
-async def get_location_overlaps(target_uri, output_featuretype_uri, include_areas, include_proportion, include_within, include_contains, linksets_filter=None, count=1000, offset=0):
+async def get_location_overlaps(target_uri, output_featuretype_uri, include_areas, include_proportion, include_within, include_contains, linksets_filter=None, count=1000, offset=0, includes_partial_overlaps=True):
     """
     :param target_uri:
     :type target_uri: str
@@ -716,12 +786,12 @@ GROUP BY ?o
     areas_sparql = """\
     OPTIONAL {
         <URI> geox:hasAreaM2 ?ha1 .
-        ?ha1 qb4st:crs epsg:3577 .
+        ?ha1 geox:inCRS epsg:3577 .
         ?ha1 dt:value ?a1 .
     }
     OPTIONAL {
         ?o geox:hasAreaM2 ?ha2 .
-        ?ha2 qb4st:crs epsg:3577 .
+        ?ha2 geox:inCRS epsg:3577 .
         ?ha2 dt:value ?a2 .
     }
     """
@@ -746,7 +816,7 @@ GROUP BY ?o
         } .
         OPTIONAL {
             ?i geox:hasAreaM2 ?ha3 .
-            ?ha3 qb4st:crs epsg:3577 .
+            ?ha3 geox:inCRS epsg:3577 .
             ?ha3 dt:value ?a3 .
         }
     }
@@ -759,21 +829,23 @@ GROUP BY ?o
     if use_proportion_sparql:
         extras += iarea_sparql
         use_selects += iarea_selects
-    sparql = overlaps_sparql.replace("<SELECTS>", use_selects)
-    sparql = sparql.replace("<EXTRAS>", extras)
-    sparql = sparql.replace("<URI>", "<{}>".format(str(target_uri)))
-    if not linksets_filter is None:
-        sparql = sparql.replace("<LINKSET_FILTER>", "ipo: <{}> ;".format(str(linksets_filter)))
-    else:
-        sparql = sparql.replace("<LINKSET_FILTER>", "")
     overlaps = []
     bindings = []
-    if not linksets_filter is None:
-        sparql = sparql.replace("<LINKSET_FILTER>", "ipo: <{}> ;".format(str(linksets_filter)))
-    else:
-        sparql = sparql.replace("<LINKSET_FILTER>", "")
-    await query_build_response_bindings(sparql, count, offset, bindings)
+    if includes_partial_overlaps:
+        sparql = overlaps_sparql.replace("<SELECTS>", use_selects)
+        sparql = sparql.replace("<EXTRAS>", extras)
+        sparql = sparql.replace("<URI>", "<{}>".format(str(target_uri)))
+        if not linksets_filter is None:
+            sparql = sparql.replace("<LINKSET_FILTER>", "ipo: <{}> ;".format(str(linksets_filter)))
+        else:
+            sparql = sparql.replace("<LINKSET_FILTER>", "")
+        if not linksets_filter is None:
+            sparql = sparql.replace("<LINKSET_FILTER>", "ipo: <{}> ;".format(str(linksets_filter)))
+        else:
+            sparql = sparql.replace("<LINKSET_FILTER>", "")
+        await query_build_response_bindings(sparql, count, offset, bindings)
     extras = ""
+    #print(sparql)
     if include_contains:
         use_selects = selects
         if use_areas_sparql:
@@ -801,6 +873,7 @@ GROUP BY ?o
         else:
             sparql = sparql.replace("<LINKSET_FILTER>", "")
         await query_build_response_bindings(sparql, count, offset, bindings)
+    #print(sparql)
     if len(bindings) < 1:
         return {'count': 0, 'offset': offset}, overlaps
     if not include_proportion and not include_areas:
@@ -812,8 +885,10 @@ GROUP BY ?o
         try:
             uarea = bindings[0]['uarea']
         except (LookupError, AttributeError):
-            raise ReportableAPIError("Source feature does not have a known geometry area."
-                                     "Cannot return areas or calculate proportions.")
+            uarea = {}
+            uarea['value'] = math.nan 
+            logging.warning("Source feature {0} does not have a known geometry area."
+                                     "Cannot return areas or calculate proportions.".format(target_uri))
         my_area = round(Decimal(uarea['value']), 8)
         for b in bindings:
             o_dict = {"uri": b['o']['value']}
@@ -834,7 +909,9 @@ GROUP BY ?o
             try:
                 oarea = b['oarea']
             except (LookupError, AttributeError):
-                continue
+                b['oarea'] = {}
+                b['oarea']['value'] = math.nan
+                oarea = b['oarea'] 
             o_area = round(Decimal(oarea['value']), 8)
             if include_areas:
                 o_dict['featureArea'] = str(o_area)
@@ -881,45 +958,58 @@ GROUP BY ?o
     return meta, final_overlaps
 
 
-async def get_at_location(lat, lon, loci_type="any", count=1000, offset=0):
+async def get_at_location(lat, lon, loci_type="any", crs=4326, count=1000, offset=0):
     """
     :param lat:
     :type lat: float
     :param lon:
     :type lon: float
+    :param crs:
+    :type crs: int
     :param count:
     :type count: int
     :param offset:
     :type offset: int
     :return:
     """
-    if get_at_location.pool is None:
-        get_at_location.pool = await asyncpg.create_pool('postgresql://postgres:password@{}:5437/mydb'.format(GEOBASE_ENDPOINT), command_timeout=60, min_size=1, max_size=2)
-    conn = await get_at_location.pool.acquire()
+    loop = asyncio.get_event_loop()
+    try:
+        gds_session = get_at_location.session_cache[loop]
+    except KeyError:
+        gds_session = ClientSession(loop=loop)
+        get_at_location.session_cache[loop] = gds_session
     row = {}
     results = {}
     counter = 0
+    params = {
+       "_format" : "application/json",
+       "crs": crs
+    }
+    formatted_resp = {
+        'ok': False
+    }
+    http_ok = [200]
+    if loci_type == 'any':
+       search_by_latlng_url = GEOM_DATA_SVC_ENDPOINT + "/search/latlng/{},{}".format(lon,lat)
+    else:
+       search_by_latlng_url = GEOM_DATA_SVC_ENDPOINT + "/search/latlng/{},{}/dataset/{}".format(lon, lat, loci_type)
     try:
-        if loci_type == 'mb' or loci_type == 'any':
-            row = await conn.fetchrow(
-                    'select mb_code_20 from "from" where ST_Intersects(ST_Transform(ST_GeomFromText(\'POINT(\' || $1 || \' \' || $2 || \')\', 4326),3577), "from".geom_3577) order by mb_code_20 limit $3 offset $4', str(lon), str(lat), count, offset)
-            if row is not None and len(row) > 0:
-                results["mb"] = ["http://linked.data.gov.au/dataset/asgs2016/meshblock/{}".format(row['mb_code_20'])]
-                counter += len(row)
-        if loci_type == 'cc' or loci_type == 'any':
-            row = await conn.fetchrow(
-                    'select hydroid from "to" where ST_Intersects(ST_Transform(ST_GeomFromText(\'POINT(\' || $1 || \' \' || $2 || \')\', 4326),3577), "to".geom_3577) order by hydroid limit $3 offset $4', str(lon), str(lat), count, offset)
-            if row is not None and len(row) > 0:
-                results["cc"] = ["http://linked.data.gov.au/dataset/geofabric/contractedcatchment/{}".format(row['hydroid'])]
-                counter += len(row)
-    finally:
-        await get_at_location.pool.release(conn)
+        resp = await gds_session.request('GET', search_by_latlng_url, params=params)
+        resp_content = await resp.text()
+        if resp.status not in http_ok:
+            formatted_resp['errorMessage'] = "Could not connect to the geometry data service at {}. Error code {}".format(GEOM_DATA_SVC_ENDPOINT, resp.status)
+            return formatted_resp
+        formatted_resp = loads(resp_content)
+        formatted_resp['ok'] = True
+    except ClientConnectorError:
+        formatted_resp['errorMessage'] = "Could not connect to the geometry data service at {}. Connection error thrown.".format(GEOM_DATA_SVC_ENDPOINT)
+        return formatted_resp
     meta = {
-        'count': counter,
+        'count': formatted_resp['count'],
         'offset': offset,
     }
-    return meta, results
-get_at_location.pool = None
+    return meta, formatted_resp
+get_at_location.session_cache = {}
 
 async def query_es_endpoint(query, limit=10, offset=0):
     """
