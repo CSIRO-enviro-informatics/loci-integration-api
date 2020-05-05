@@ -59,9 +59,10 @@ async def find_dggs_by_loci_uri(uri):
         index = uri.find(lookup_key)
         if index==0:
             dggs_column = lookup_value[1]
-            uri_value = uri[len(lookup_key):len(uri)]
+            uri_value = uri[(len(lookup_key)+1):len(uri)]
             break
-    sql = f'select auspix_dggs from public."MainTable01" where {dggs_column}=\'{uri_value}\''
+    sql = f'select auspix_dggs from MainTable02 where {dggs_column}=\'{uri_value}\''
+    print(sql)
     conn = psycopg2.connect(PG_ENDPOINT)
     db_cursor = conn.cursor()
     res = db_cursor.execute(sql)
@@ -69,7 +70,7 @@ async def find_dggs_by_loci_uri(uri):
     db_cursor.close()
     dggs_cells = []
     for record in records:
-        dggs_cells.append(record)
+        dggs_cells.append(record[0])
     meta = {
         'count': len(dggs_cells),
         'uri': uri
@@ -92,8 +93,8 @@ async def find_at_dggs_cell(dggs_cell):
             sa3_code16, \
             lga_code19, \
             ssc_code16 \
-            FROM public."MainTable01" WHERE auspix_dggs=\'{dggs_cell_id}\''
-    # print(sql)
+            FROM MainTable02 WHERE auspix_dggs=\'{dggs_cell_id}\''
+    print(sql)
     conn = psycopg2.connect(PG_ENDPOINT)
     db_cursor = conn.cursor()
     res = db_cursor.execute(sql)
