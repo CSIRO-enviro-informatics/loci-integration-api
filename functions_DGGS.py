@@ -62,7 +62,7 @@ async def find_dggs_by_loci_uri(uri):
             uri_value = uri[(len(lookup_key)+1):len(uri)]
             break
     sql = f'select auspix_dggs from MainTable02 where {dggs_column}=\'{uri_value}\''
-    print(sql)
+    #print(sql)
     conn = psycopg2.connect(PG_ENDPOINT)
     db_cursor = conn.cursor()
     res = db_cursor.execute(sql)
@@ -82,7 +82,7 @@ async def find_at_dggs_cell(dggs_cell):
     Function for finding an array of Loci-i features by a DGGS AUxPIX Cell ID, eg "R6810000005"
     """
     dggs_prefix = 'http://ec2-52-63-73-113.ap-southeast-2.compute.amazonaws.com/AusPIX-DGGS-dataset/ausPIX/'
-    print(PG_ENDPOINT)
+    #print(PG_ENDPOINT)
     index = dggs_cell.find(dggs_prefix)
     dggs_cell_id = dggs_cell
     if index==0:
@@ -94,7 +94,7 @@ async def find_at_dggs_cell(dggs_cell):
             lga_code19, \
             ssc_code16 \
             FROM MainTable02 WHERE auspix_dggs=\'{dggs_cell_id}\''
-    print(sql)
+    #print(sql)
     conn = psycopg2.connect(PG_ENDPOINT)
     db_cursor = conn.cursor()
     res = db_cursor.execute(sql)
@@ -102,7 +102,7 @@ async def find_at_dggs_cell(dggs_cell):
     db_cursor.close()
 
     # For each DGGS cell id, only one row will selected
-    print(records)
+    #print(records)
     locations = []
     if records:
         item = records[0]
