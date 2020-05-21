@@ -10,6 +10,7 @@ services:
       - PYTHONDONTWRITEBYTECODE=1
       - GEOBASE_HOST
       - TRIPLESTORE_CACHE_URL 
+      - TRIPLESTORE_CACHE_PORT
       - GEOBASE_URL
       - PG_HOST
       - PG_PORT
