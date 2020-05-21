@@ -20,6 +20,9 @@ if running the label search engine, run
 if running the label search engine only (no sanic api),
 `docker-compose -f docker-compose.es.yml up --build` 
 
+if running the api with docker image from docker hub
+`docker-compose -f docker-compose.yml -f docker-compose.useimage.yml up -d` 
+
 
 ## License
 The license of this document is TBD
