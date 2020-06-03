@@ -24,6 +24,19 @@ if running the api with docker image from docker hub
 `docker-compose -f docker-compose.yml -f docker-compose.useimage.yml up -d` 
 
 
+## Known issues
+
+If running the elasticsearch appliance throws up an error like:
+```
+initial heap size [2685456] not equal to maximum heap size [2147483648]; this can cause resize pauses and prevents mlockall from locking the entire heap
+```
+
+Ensure this is updated on the OS like so...
+```
+$ sudo sysctl -w vm.max_map_count=262144
+
+```
+
 ## License
 The license of this document is TBD
 
