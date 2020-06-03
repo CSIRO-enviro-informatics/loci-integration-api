@@ -5,7 +5,7 @@ services:
     build: ./search
     environment:
       #full set of labels
-      - S3_LABEL_TARBALL=http://loci-assets.s3.ap-southeast-2.amazonaws.com/location_labels/loc-labels-es-json.tar.gz
+      - S3_LABEL_TARBALL=http://loci-assets.s3.ap-southeast-2.amazonaws.com/location_labels/loc-labels-es-json_20200603.tar.gz
       #test set of labels
       #- S3_LABEL_TARBALL=http://loci-assets.s3.ap-southeast-2.amazonaws.com/location_labels/loc-labels-es-json-testdata.tar.gz
     command: sh -c './wait-for-it.sh elasticsearch:9200 -t 0 -- ./load_es.sh'
