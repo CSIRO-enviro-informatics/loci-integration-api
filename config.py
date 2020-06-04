@@ -20,8 +20,14 @@ ES_ENDPOINT = CONFIG["ES_ENDPOINT"] = \
     "{}:{}/_search".format(ES_URL, ES_PORT)
 
 
-GEOM_DATA_SVC_ENDPOINT = CONFIG["GEOM_DATA_SVC_ENDPOINT"] = "https://gds.loci.cat"
-LOCI_DATATYPES_STATIC_JSON = CONFIG["LOCI_DATATYPES_STATIC_JSON"] = "https://loci.cat/json-ld/loci-types.json"
+GEOM_DATA_SVC_ENDPOINT = os.environ.get('GEOM_DATA_SVC_ENDPOINT')
+if GEOM_DATA_SVC_ENDPOINT is None or GEOM_DATA_SVC_ENDPOINT == '':
+   GEOM_DATA_SVC_ENDPOINT = CONFIG["GEOM_DATA_SVC_ENDPOINT"] = "https://gds.loci.cat"
+
+LOCI_DATATYPES_STATIC_JSON = os.environ.get('LOCI_DATATYPES_STATIC_JSON')
+if LOCI_DATATYPES_STATIC_JSON is None or LOCI_DATATYPES_STATIC_JSON == '':
+   LOCI_DATATYPES_STATIC_JSON = CONFIG["LOCI_DATATYPES_STATIC_JSON"] = "https://loci.cat/json-ld/loci-types.json"
+  
 
 PG_HOST = os.environ.get('PG_HOST')
 PG_PORT = os.environ.get('PG_PORT')
