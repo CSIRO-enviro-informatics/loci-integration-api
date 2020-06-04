@@ -8,7 +8,7 @@ from sanic_restplus import Api, Resource, fields
 import re
 
 
-from functions import check_type, get_linksets, get_datasets, get_dataset_types, get_locations, get_location_is_within, get_location_contains, get_resource, get_location_overlaps_crosswalk, get_location_overlaps, get_at_location, search_location_by_label
+from functions import check_type, get_linksets, get_datasets, get_dataset_types, get_locations, get_location_is_within, get_location_contains, get_resource, get_location_overlaps_crosswalk, get_location_overlaps, get_at_location, search_location_by_label, find_geometry_by_loci_uri
 from functions_DGGS import find_dggs_by_loci_uri, find_at_dggs_cell
 from functools import reduce 
 
@@ -402,6 +402,37 @@ class Search(Resource):
         result = await search_location_by_label(query)
         response = result
         return json(response, status=200)
+
+@ns_loc_func.route('/geometry')
+class Geometry(Resource):
+    """
+        Function for finding a geometry from a Loc-I Feature URI. 
+        Default view is 'geometryview' (other views include 'simplifiedgeom' and 'centroid').
+        Default format is 'application/json' (other formats include 'text/turtle' and 'text/plain'.
+    """
+
+    @ns.doc('geometry_from_uri', params=OrderedDict([
+        ("uri", {"description": "Loc-I Feature URI",
+                    "required": True, "type": "string"}),
+        ("format", {"description": "Format",
+                    "required": False, "type": "string", "default": "application/json"}),
+        ("view", {"description": "Geometry View",
+                    "required": False, "type": "string", "default": "simplifiedgeom"}),
+    ]), security=None)
+    async def get(self, request, *args, **kwargs):
+        """Queries cache for the related geometry URI using the feature URI
+           then returns """
+        loci_uri =   str(next(iter(request.args.getlist('uri'))))
+        geomformat = str(next(iter(request.args.getlist('format', "application/json" ))))
+        geomview = str(next(iter(request.args.getlist('view', "simplifiedgeom"))))
+
+        meta, geometry = await find_geometry_by_loci_uri(loci_uri, geomformat, geomview)
+        response = {
+            "meta": meta,
+            "geometry": geometry,
+        }
+        return json(response, status=200)
+
 
 @ns_loc_func.route('/to-DGGS')
 class to_DGGS(Resource):

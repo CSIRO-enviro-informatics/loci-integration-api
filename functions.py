@@ -1080,3 +1080,81 @@ async def search_location_by_label(query):
     resp_object = resp
     return resp_object
 
+
+async def find_geometry_by_loci_uri(uri, geom_format, geom_view):
+    """
+    Find the geometry for a given Loc-I Feature URI, including input format and view.
+
+    :param uri: the Loc-I Feature
+    :type uri: str
+    :param geom_format: Geometry return format
+    :type geom_format: str
+    :param geom_view: Geometry view
+    :type geom_view: str
+    :return:
+    :rtype: dict
+    """
+    http_ok = [200]
+    sparql = """\
+PREFIX geo: <http://www.opengis.net/ont/geosparql#>
+SELECT DISTINCT ?geom where { 
+  <FEATUREURI> geo:hasGeometry ?geom .    
+} limit 10
+"""
+    sparql = sparql.replace("<FEATUREURI>", "<{}>".format(str(uri)))
+    geometry_list = []
+    meta = {
+        'uri': uri,
+        'format': geom_format,
+        'view' : geom_view,
+        'count': len(geometry_list)
+    }
+    count = 10
+    offset = 0
+    resp = await query_graphdb_endpoint(sparql, limit=count, offset=offset)
+    if 'results' not in resp:
+        return meta, geometry_list
+    bindings = resp['results']['bindings']
+    for b in bindings:
+        geometry_list.append(b['geom']['value'])
+    #get the gds response
+    loop = asyncio.get_event_loop()
+    try:
+        session = find_geometry_by_loci_uri.session_cache[loop]
+    except KeyError:
+        session = ClientSession(loop=loop)
+        find_geometry_by_loci_uri.session_cache[loop] = session
+    meta['geometry_uri_list'] = geometry_list
+    geom_response_list = []
+    geom_response_error_list = []
+    params = {
+       "_format" : "application/json",
+       "_view": "geometryview"
+    }
+    if geom_view != None:
+       params['_view'] = geom_view
+    if geom_format != None:
+       params['_format'] = geom_format
+    for geom_uri in geometry_list:
+       if(str(geom_uri).startswith("http") != True):
+          geom_response_error_list.append(geom_uri)
+          continue 
+       try:
+           resp = await session.request('GET', geom_uri, params=params)
+           resp_content = await resp.text()
+           if resp.status not in http_ok:
+               geom_response_error_list.append({ 
+                           'uri': geom_uri , 
+                           'error' : "http status code {}".format(resp.status)
+                         })
+               continue 
+           if geom_format == "application/json":
+              geom_response_list.append(loads(resp_content))
+           else:
+              geom_response_list.append(resp_content)
+       except ClientConnectorError:
+           geom_response_error_list.append({ 'uri': geom_uri , 'error' : "ClientConnectorError"})
+    if len(geom_response_error_list) > 0:
+       meta['geom_response_errors'] = geom_response_error_list
+    return meta, geom_response_list
+find_geometry_by_loci_uri.session_cache = {}
