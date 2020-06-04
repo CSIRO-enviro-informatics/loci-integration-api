@@ -425,8 +425,8 @@ class Geometry(Resource):
         """Queries cache for the related geometry URI using the feature URI
            then returns """
         loci_uri =   str(next(iter(request.args.getlist('uri'))))
-        geomformat = str(next(iter(request.args.getlist('format', "application/json" ))))
-        geomview = str(next(iter(request.args.getlist('view', "simplifiedgeom"))))
+        geomformat = str(next(iter(request.args.getlist('format', ["application/json"] ))))
+        geomview = str(next(iter(request.args.getlist('view', ["simplifiedgeom"]))))
 
         meta, geometry = await find_geometry_by_loci_uri(loci_uri, geomformat, geomview)
         response = {
