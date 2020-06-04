@@ -1156,5 +1156,6 @@ SELECT DISTINCT ?geom where {
            geom_response_error_list.append({ 'uri': geom_uri , 'error' : "ClientConnectorError"})
     if len(geom_response_error_list) > 0:
        meta['geom_response_errors'] = geom_response_error_list
+    meta['count'] = len(geom_response_list)
     return meta, geom_response_list
 find_geometry_by_loci_uri.session_cache = {}
