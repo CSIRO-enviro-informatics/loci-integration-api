@@ -38,7 +38,7 @@ do
   echo "Processing $f file..."
   # take action on each file. $f store current file name
   echo "uploading $f to es"
-  curl -s -XPOST -H "Content-Type: application/json" elasticsearch:9200/_bulk --data-binary @${f} 
+  curl --silent --output /dev/null -XPOST -H "Content-Type: application/json" elasticsearch:9200/_bulk --data-binary @${f} 
   #cleanup
   rm $f
 done
