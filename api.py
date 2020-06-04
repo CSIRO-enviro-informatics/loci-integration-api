@@ -16,7 +16,7 @@ from functools import reduce
 url_prefix = '/v1'
 
 api_v1 = Api(title="LOCI Integration API",
-             version="1.2",
+             version="1.3",
              prefix=url_prefix, doc='/'.join([url_prefix, "doc"]),
              default_mediatype="application/json",
              additional_css="/static/material_swagger.css")
@@ -417,7 +417,9 @@ class Geometry(Resource):
         ("format", {"description": "Format",
                     "required": False, "type": "string", "default": "application/json"}),
         ("view", {"description": "Geometry View",
-                    "required": False, "type": "string", "default": "simplifiedgeom"}),
+                    "required": False, "type": "string", "enum" : ["geometryview","simplifiedgeom", "centroid"],
+                       "default": "simplifiedgeom"
+                         }),
     ]), security=None)
     async def get(self, request, *args, **kwargs):
         """Queries cache for the related geometry URI using the feature URI
