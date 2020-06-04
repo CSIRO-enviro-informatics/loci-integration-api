@@ -420,6 +420,8 @@ class Geometry(Resource):
                     "required": False, "type": "string", "enum" : ["geometryview","simplifiedgeom", "centroid"],
                        "default": "simplifiedgeom"
                          }),
+        ("uri_only", {"description": "If set and True, return only the geometry URI as a list. If false, then the geometry content is returned in the payload, e.g. GeoJSON or WKT",
+                         "required": False, "type": "boolean", "default": False}),
     ]), security=None)
     async def get(self, request, *args, **kwargs):
         """Queries cache for the related geometry URI using the feature URI
@@ -427,8 +429,10 @@ class Geometry(Resource):
         loci_uri =   str(next(iter(request.args.getlist('uri'))))
         geomformat = str(next(iter(request.args.getlist('format', ["application/json"] ))))
         geomview = str(next(iter(request.args.getlist('view', ["simplifiedgeom"]))))
+        uri_only = str(next(iter(request.args.getlist('uri_only', ['false']))))
+        uri_only = uri_only[0] in TRUTHS
 
-        meta, geometry = await find_geometry_by_loci_uri(loci_uri, geomformat, geomview)
+        meta, geometry = await find_geometry_by_loci_uri(loci_uri, geomformat, geomview, uri_only)
         response = {
             "meta": meta,
             "geometry": geometry,

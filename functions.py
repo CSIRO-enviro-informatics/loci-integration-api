@@ -1081,7 +1081,7 @@ async def search_location_by_label(query):
     return resp_object
 
 
-async def find_geometry_by_loci_uri(uri, geom_format, geom_view):
+async def find_geometry_by_loci_uri(uri, geom_format, geom_view, uri_only):
     """
     Find the geometry for a given Loc-I Feature URI, including input format and view.
 
@@ -1105,8 +1105,6 @@ SELECT DISTINCT ?geom where {
     geometry_list = []
     meta = {
         'uri': uri,
-        'format': geom_format,
-        'view' : geom_view,
         'count': len(geometry_list)
     }
     count = 10
@@ -1124,7 +1122,14 @@ SELECT DISTINCT ?geom where {
     except KeyError:
         session = ClientSession(loop=loop)
         find_geometry_by_loci_uri.session_cache[loop] = session
+    if uri_only == True: # return just the geometry uris as a list if this is set
+       meta['count'] = len(geometry_list)
+       return meta, geometry_list
+       
+    #if uri_only is false or not set, then get the actual geoms to return
     meta['geometry_uri_list'] = geometry_list
+    meta['format'] = geom_format
+    meta['view'] = geom_view
     geom_response_list = []
     geom_response_error_list = []
     params = {
