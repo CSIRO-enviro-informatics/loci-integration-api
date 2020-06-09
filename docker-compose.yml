@@ -19,3 +19,4 @@ services:
       - PG_DB_NAME
       - PG_USER
       - PG_PASSWORD
+      - PG_TABLE
