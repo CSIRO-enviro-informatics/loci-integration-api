@@ -1,5 +1,4 @@
 [
-    { "abc" : 123 },
     {
         "datasetUri": "http://linked.data.gov.au/dataset/asgs2016",
         "title": "MeshBlock",
