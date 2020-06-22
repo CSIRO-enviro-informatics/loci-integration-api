@@ -1,0 +1,384 @@
+[
+    {
+        "datasetUri": "http://linked.data.gov.au/dataset/asgs2016",
+        "title": "MeshBlock",
+        "shortlabel" : "mb",
+        "uri": "http://linked.data.gov.au/def/asgs#MeshBlock",
+        "prefix": "http://linked.data.gov.au/dataset/asgs2016/meshblock/",
+        "withinTypes": [
+            "http://linked.data.gov.au/def/asgs#StatisticalAreaLevel1",
+            "http://linked.data.gov.au/def/asgs#StatisticalAreaLevel2",
+            "http://linked.data.gov.au/def/asgs#StatisticalAreaLevel3",
+            "http://linked.data.gov.au/def/asgs#StatisticalAreaLevel4",
+            "http://linked.data.gov.au/def/asgs#StateOrTerritory",
+            "http://linked.data.gov.au/def/asgs#GreaterCapitalCityStatisticalArea",
+            "http://linked.data.gov.au/def/asgs#SignificantUrbanArea",
+            "http://linked.data.gov.au/def/asgs#RemotenessArea",
+            "http://linked.data.gov.au/def/asgs#IndigenousLocation",
+            "http://linked.data.gov.au/def/asgs#IndigenousArea",
+            "http://linked.data.gov.au/def/asgs#IndigenousRegion",
+            "http://linked.data.gov.au/def/asgs#UrbanCentreAndLocality",
+            "http://linked.data.gov.au/def/asgs#SectionOfStateRange",
+            "http://linked.data.gov.au/def/asgs#SectionOfState",
+            "http://linked.data.gov.au/def/asgs#LocalGovernmentArea",
+            "http://linked.data.gov.au/def/asgs#CommonwealthElectoralDivision",
+            "http://linked.data.gov.au/def/asgs#StateSuburb",
+            "http://linked.data.gov.au/def/asgs#NaturalResourceManagementRegion"
+        ],
+        "baseType": true
+    },
+    {
+        "datasetUri": "http://linked.data.gov.au/dataset/asgs2016",
+        "title": "SA1",
+        "shortlabel" : "sa1",
+        "uri": "http://linked.data.gov.au/def/asgs#StatisticalAreaLevel1",
+        "prefix": "http://linked.data.gov.au/dataset/asgs2016/statisticalarealevel1/",
+        "withinTypes": [
+            "http://linked.data.gov.au/def/asgs#StatisticalAreaLevel2",
+            "http://linked.data.gov.au/def/asgs#StatisticalAreaLevel3",
+            "http://linked.data.gov.au/def/asgs#StatisticalAreaLevel4",
+            "http://linked.data.gov.au/def/asgs#StateOrTerritory",
+            "http://linked.data.gov.au/def/asgs#GreaterCapitalCityStatisticalArea",
+            "http://linked.data.gov.au/def/asgs#SignificantUrbanArea",
+            "http://linked.data.gov.au/def/asgs#RemotenessArea",
+            "http://linked.data.gov.au/def/asgs#IndigenousLocation",
+            "http://linked.data.gov.au/def/asgs#IndigenousArea",
+            "http://linked.data.gov.au/def/asgs#IndigenousRegion",
+            "http://linked.data.gov.au/def/asgs#UrbanCentreAndLocality",
+            "http://linked.data.gov.au/def/asgs#SectionOfStateRange",
+            "http://linked.data.gov.au/def/asgs#SectionOfState",
+            "http://linked.data.gov.au/def/asgs#LocalGovernmentArea",
+            "http://linked.data.gov.au/def/asgs#CommonwealthElectoralDivision",
+            "http://linked.data.gov.au/def/asgs#StateSuburb",
+            "http://linked.data.gov.au/def/asgs#NaturalResourceManagementRegion"
+        ]
+    },
+    {
+        "datasetUri": "http://linked.data.gov.au/dataset/asgs2016",
+        "title": "SA2",
+        "shortlabel" : "sa2",
+        "uri": "http://linked.data.gov.au/def/asgs#StatisticalAreaLevel2",
+        "prefix": "http://linked.data.gov.au/dataset/asgs2016/statisticalarealevel2/",
+        "withinTypes": [
+            "http://linked.data.gov.au/def/asgs#StatisticalAreaLevel3",
+            "http://linked.data.gov.au/def/asgs#StatisticalAreaLevel4",
+            "http://linked.data.gov.au/def/asgs#StateOrTerritory",
+            "http://linked.data.gov.au/def/asgs#GreaterCapitalCityStatisticalArea",
+            "http://linked.data.gov.au/def/asgs#SignificantUrbanArea"
+        ]
+    },
+    {
+        "datasetUri": "http://linked.data.gov.au/dataset/asgs2016",
+        "title": "SA3",
+        "shortlabel" : "sa3",
+        "uri": "http://linked.data.gov.au/def/asgs#StatisticalAreaLevel3",
+        "prefix": "http://linked.data.gov.au/dataset/asgs2016/statisticalarealevel3/",
+        "withinTypes": [
+            "http://linked.data.gov.au/def/asgs#StatisticalAreaLevel4",
+            "http://linked.data.gov.au/def/asgs#StateOrTerritory"
+        ]
+    },
+    {
+        "datasetUri": "http://linked.data.gov.au/dataset/asgs2016",
+        "title": "SA4",
+        "shortlabel" : "sa4",
+        "uri": "http://linked.data.gov.au/def/asgs#StatisticalAreaLevel4",
+        "prefix": "http://linked.data.gov.au/dataset/asgs2016/statisticalarealevel4/",
+        "withinTypes": [
+            "http://linked.data.gov.au/def/asgs#StateOrTerritory"
+        ]
+    },
+    {
+        "datasetUri": "http://linked.data.gov.au/dataset/asgs2016",
+        "title": "StateOrTerritory",
+        "shortlabel" : "ste",
+        "uri": "http://linked.data.gov.au/def/asgs#StateOrTerritory",
+        "prefix": "http://linked.data.gov.au/dataset/asgs2016/stateorterritory/"
+    },
+    {
+        "datasetUri": "http://linked.data.gov.au/dataset/asgs2016",
+        "title": "Greater Capital City Statistical Area",
+        "shortlabel" : "gccsa",
+        "uri": "http://linked.data.gov.au/def/asgs#StatisticalAreaLevel3",
+        "prefix": "http://linked.data.gov.au/dataset/asgs2016/greatercapitalcitystatisticalarea/",
+        "withinTypes": [
+            "http://linked.data.gov.au/def/asgs#StateOrTerritory"
+        ]
+    },
+    {
+        "datasetUri": "http://linked.data.gov.au/dataset/asgs2016",
+        "title": "Significant Urban Area",
+        "shortlabel" : "sua",
+        "uri": "http://linked.data.gov.au/def/asgs#SignificantUrbanArea",
+        "prefix": "http://linked.data.gov.au/dataset/asgs2016/significanturbanarea/",
+        "withinTypes": [
+        ]
+    },
+    {
+        "datasetUri": "http://linked.data.gov.au/dataset/asgs2016",
+        "title": "Remoteness Area",
+        "shortlabel" : "ra",
+        "uri": "http://linked.data.gov.au/def/asgs#RemotenessArea",
+        "prefix": "http://linked.data.gov.au/dataset/asgs2016/remotenessarea/",
+        "withinTypes": [
+            "http://linked.data.gov.au/def/asgs#StateOrTerritory"
+        ]
+    },
+    {
+        "datasetUri": "http://linked.data.gov.au/dataset/asgs2016",
+        "title": "Indigenous Location",
+        "shortlabel" : "iloc",
+        "uri": "http://linked.data.gov.au/def/asgs#IndigenousLocation",
+        "prefix": "http://linked.data.gov.au/dataset/asgs2016/indigenouslocation/",
+        "withinTypes": [
+            "http://linked.data.gov.au/def/asgs#StateOrTerritory",
+            "http://linked.data.gov.au/def/asgs#IndigenousArea",
+            "http://linked.data.gov.au/def/asgs#IndigenousRegion"
+        ]
+    },
+    {
+        "datasetUri": "http://linked.data.gov.au/dataset/asgs2016",
+        "title": "Indigenous Area",
+        "shortlabel" : "iare",
+        "uri": "http://linked.data.gov.au/def/asgs#IndigenousArea",
+        "prefix": "http://linked.data.gov.au/dataset/asgs2016/indigenousarea/",
+        "withinTypes": [
+            "http://linked.data.gov.au/def/asgs#StateOrTerritory",
+            "http://linked.data.gov.au/def/asgs#IndigenousRegion"
+        ]
+    },
+    {
+        "datasetUri": "http://linked.data.gov.au/dataset/asgs2016",
+        "title": "Indigenous Region",
+        "shortlabel" : "ireg",
+        "uri": "http://linked.data.gov.au/def/asgs#IndigenousRegion",
+        "prefix": "http://linked.data.gov.au/dataset/asgs2016/indigenousregion/",
+        "withinTypes": [
+            "http://linked.data.gov.au/def/asgs#StateOrTerritory"
+        ]
+    },
+    {
+        "datasetUri": "http://linked.data.gov.au/dataset/asgs2016",
+        "title": "Urban Centre and Locality",
+        "shortlabel" : "ucl",
+        "uri": "http://linked.data.gov.au/def/asgs#UrbanCentreAndLocality",
+        "prefix": "http://linked.data.gov.au/dataset/asgs2016/urbancentreandlocality",
+        "withinTypes": [
+            "http://linked.data.gov.au/def/asgs#StateOrTerritory",
+            "http://linked.data.gov.au/def/asgs#SectionOfStateRange",
+            "http://linked.data.gov.au/def/asgs#SectionOfState"
+        ]
+    },
+    {
+        "datasetUri": "http://linked.data.gov.au/dataset/asgs2016",
+        "title": "Section of State Range",
+        "shortlabel" : "sosr",
+        "uri": "http://linked.data.gov.au/def/asgs#SectionOfStateRange",
+        "prefix": "http://linked.data.gov.au/dataset/asgs2016/sectionofstaterange/",
+        "withinTypes": [
+            "http://linked.data.gov.au/def/asgs#StateOrTerritory",
+            "http://linked.data.gov.au/def/asgs#SectionOfState"
+        ]
+    },
+    {
+        "datasetUri": "http://linked.data.gov.au/dataset/asgs2016",
+        "title": "Section of State",
+        "shortlabel" : "sos",
+        "uri": "http://linked.data.gov.au/def/asgs#SectionOfState",
+        "prefix": "http://linked.data.gov.au/dataset/asgs2016/sectionofstate/",
+        "withinTypes": [
+            "http://linked.data.gov.au/def/asgs#StateOrTerritory"
+        ]
+    },
+    {
+        "datasetUri": "http://linked.data.gov.au/dataset/asgs2016",
+        "title": "Local Government Area",
+        "shortlabel" : "lga",
+        "uri": "http://linked.data.gov.au/def/asgs#LocalGovernmentArea",
+        "prefix": "http://linked.data.gov.au/dataset/asgs2016/localgovernmentarea/",
+        "withinTypes": [
+        ]
+    },
+    {
+        "datasetUri": "http://linked.data.gov.au/dataset/asgs2016",
+        "title": "Commonwealth Electoral Division",
+        "shortlabel" : "ced",
+        "uri": "http://linked.data.gov.au/def/asgs#CommonwealthElectoralDivision",
+        "prefix": "http://linked.data.gov.au/dataset/asgs2016/commonwealthelectoraldivision/",
+        "withinTypes": [
+        ]
+    },
+    {
+        "datasetUri": "http://linked.data.gov.au/dataset/asgs2016",
+        "title": "State Suburb",
+        "shortlabel" : "ss",
+        "uri": "http://linked.data.gov.au/def/asgs#StateSuburb",
+        "prefix": "http://linked.data.gov.au/dataset/asgs2016/statesuburb/",
+        "withinTypes": [
+        ]
+    },
+    {
+        "datasetUri": "http://linked.data.gov.au/dataset/asgs2016",
+        "title": "Natural Resource Management Region",
+        "shortlabel" : "nrmr",
+        "uri": "http://linked.data.gov.au/def/asgs#NaturalResourceManagementRegion",
+        "prefix": "http://linked.data.gov.au/dataset/asgs2016/naturalresourcemanagementregion/",
+        "withinTypes": [
+        ]
+    },
+    {
+        "datasetUri": "http://linked.data.gov.au/dataset/asgs2011",
+        "title": "MeshBlock",
+        "shortlabel" : "mb",
+        "uri": "http://linked.data.gov.au/def/asgs#MeshBlock",
+        "prefix": "http://linked.data.gov.au/dataset/asgs2011/meshblock/",
+        "withinTypes": [
+            "http://linked.data.gov.au/def/asgs#StatisticalAreaLevel1",
+            "http://linked.data.gov.au/def/asgs#StatisticalAreaLevel2",
+            "http://linked.data.gov.au/def/asgs#StatisticalAreaLevel3",
+            "http://linked.data.gov.au/def/asgs#StatisticalAreaLevel4",
+            "http://linked.data.gov.au/def/asgs#StateOrTerritory"
+        ],
+        "baseType": true
+    },
+    {
+        "datasetUri": "http://linked.data.gov.au/dataset/asgs2011",
+        "title": "SA1",
+        "shortlabel" : "sa1",
+        "uri": "http://linked.data.gov.au/def/asgs#StatisticalAreaLevel1",
+        "prefix": "http://linked.data.gov.au/dataset/asgs2011/statisticalarealevel1/",
+        "withinTypes": [
+            "http://linked.data.gov.au/def/asgs#StatisticalAreaLevel2",
+            "http://linked.data.gov.au/def/asgs#StatisticalAreaLevel3",
+            "http://linked.data.gov.au/def/asgs#StatisticalAreaLevel4",
+            "http://linked.data.gov.au/def/asgs#StateOrTerritory"
+        ]
+    },
+    {
+        "datasetUri": "http://linked.data.gov.au/dataset/asgs2011",
+        "title": "SA2",
+        "shortlabel" : "sa2",
+        "uri": "http://linked.data.gov.au/def/asgs#StatisticalAreaLevel2",
+        "prefix": "http://linked.data.gov.au/dataset/asgs2011/statisticalarealevel2/",
+        "withinTypes": [
+            "http://linked.data.gov.au/def/asgs#StatisticalAreaLevel3",
+            "http://linked.data.gov.au/def/asgs#StatisticalAreaLevel4",
+            "http://linked.data.gov.au/def/asgs#StateOrTerritory"
+        ]
+    },
+    {
+        "datasetUri": "http://linked.data.gov.au/dataset/asgs2011",
+        "title": "SA3",
+        "shortlabel" : "sa3",
+        "uri": "http://linked.data.gov.au/def/asgs#StatisticalAreaLevel3",
+        "prefix": "http://linked.data.gov.au/dataset/asgs2011/statisticalarealevel3/",
+        "withinTypes": [
+            "http://linked.data.gov.au/def/asgs#StatisticalAreaLevel4",
+            "http://linked.data.gov.au/def/asgs#StateOrTerritory"
+        ]
+    },
+    {
+        "datasetUri": "http://linked.data.gov.au/dataset/asgs2011",
+        "title": "SA4",
+        "shortlabel" : "sa4",
+        "uri": "http://linked.data.gov.au/def/asgs#StatisticalAreaLevel4",
+        "prefix": "http://linked.data.gov.au/dataset/asgs2011/statisticalarealevel4/",
+        "withinTypes": [
+            "http://linked.data.gov.au/def/asgs#StateOrTerritory"
+        ]
+    },
+    {
+        "datasetUri": "http://linked.data.gov.au/dataset/asgs2011",
+        "title": "StateOrTerritory",
+        "shortlabel" : "ste",
+        "uri": "http://linked.data.gov.au/def/asgs#StateOrTerritory",
+        "prefix": "http://linked.data.gov.au/dataset/asgs2011/stateorterritory/"
+    },
+    {
+        "datasetUri": "http://linked.data.gov.au/dataset/geofabric",
+        "title": "Contracted Catchment",
+        "shortlabel" : "cc",
+        "uri": "http://linked.data.gov.au/def/geofabric#ContractedCatchment",
+        "prefix": "http://linked.data.gov.au/dataset/geofabric/contractedcatchment/",
+        "withinTypes": [
+            "http://linked.data.gov.au/def/geofabric#RiverRegion",
+            "http://linked.data.gov.au/def/geofabric#DrainageDivision"
+        ],
+        "baseType": true
+    },
+    {
+        "datasetUri": "http://linked.data.gov.au/dataset/geofabric",
+        "title": "River Region",
+        "shortlabel" : "rr",
+        "uri": "http://linked.data.gov.au/def/geofabric#RiverRegion",
+        "prefix": "http://linked.data.gov.au/dataset/geofabric/riverregion/",
+        "withinTypes": [
+            "http://linked.data.gov.au/def/geofabric#DrainageDivision"
+        ]
+    },
+    {
+        "datasetUri": "http://linked.data.gov.au/dataset/geofabric",
+        "title": "Drainage Division",
+        "shortlabel" : "dd",
+        "uri": "http://linked.data.gov.au/def/geofabric#DrainageDivision",
+        "prefix": "http://linked.data.gov.au/dataset/geofabric/drainagedivision/"
+    },
+    {
+        "datasetUri": "http://linked.data.gov.au/dataset/gnaf",
+        "title": "Address",
+        "shortlabel" : "addr",
+        "uri": "http://linked.data.gov.au/def/gnaf#Address",
+        "prefix": "http://linked.data.gov.au/dataset/gnaf/address/",
+        "withinTypes": [
+            "http://linked.data.gov.au/def/gnaf#StreetLocality",
+            "http://linked.data.gov.au/def/gnaf#Locality"
+        ],
+        "baseType": true
+    },
+    {
+        "datasetUri": "http://linked.data.gov.au/dataset/gnaf",
+        "title": "Street Locality",
+        "shortlabel" : "sloc",
+        "uri": "http://linked.data.gov.au/def/gnaf#StreetLocality",
+        "prefix": "http://linked.data.gov.au/dataset/gnaf/streetLocality/",
+        "withinTypes": [
+            "http://linked.data.gov.au/def/gnaf#Locality"
+        ]
+    },
+    {
+        "datasetUri": "http://linked.data.gov.au/dataset/gnaf",
+        "title": "Locality",
+        "shortlabel" : "loc",
+        "uri": "http://linked.data.gov.au/def/gnaf#Locality",
+        "prefix": "http://linked.data.gov.au/dataset/gnaf/locality/"
+    },
+    {
+        "datasetUri": "http://linked.data.gov.au/dataset/gnaf-2016-05",
+        "title": "Address",
+        "shortlabel" : "addr",
+        "uri": "http://linked.data.gov.au/def/gnaf#Address",
+        "prefix": "http://linked.data.gov.au/dataset/gnaf-2016-05/address/",
+        "withinTypes": [
+            "http://linked.data.gov.au/def/gnaf#StreetLocality",
+            "http://linked.data.gov.au/def/gnaf#Locality"
+        ],
+        "baseType": true
+    },
+    {
+        "datasetUri": "http://linked.data.gov.au/dataset/gnaf-2016-05",
+        "title": "Street Locality",
+        "shortlabel" : "sloc",
+        "uri": "http://linked.data.gov.au/def/gnaf#StreetLocality",
+        "prefix": "http://linked.data.gov.au/dataset/gnaf-2016-05/streetLocality/",
+        "withinTypes": [
+            "http://linked.data.gov.au/def/gnaf#Locality"
+        ]
+    },
+    {
+        "datasetUri": "http://linked.data.gov.au/dataset/gnaf-2016-05",
+        "title": "Locality",
+        "shortlabel" : "loc",
+        "uri": "http://linked.data.gov.au/def/gnaf#Locality",
+        "prefix": "http://linked.data.gov.au/dataset/gnaf-2016-05/locality/"
+    }
+]

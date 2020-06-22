@@ -5,4 +5,8 @@ services:
     image: csiroenvinf/loci-integration-api:latest
     ports:
      - "${PORT:-8080}:8080"
+    volumes:
+     - ./loci-types.json:/usr/src/app/loci-types.json
+    environment:
+     - USE_LOCAL_LOCI_DATATYPES_STATIC_JSON=true
 
