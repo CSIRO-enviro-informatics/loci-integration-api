@@ -34,5 +34,6 @@ PG_PORT = os.environ.get('PG_PORT')
 PG_DB_NAME = os.environ.get('PG_DB_NAME')
 PG_USER = os.environ.get('PG_USER')
 PG_PASSWORD = os.environ.get('PG_PASSWORD')
+PG_TABLE = os.environ.get('PG_TABLE')
 
 PG_ENDPOINT = f'host={PG_HOST} port={PG_PORT} dbname={PG_DB_NAME} user={PG_USER} password={PG_PASSWORD}'
