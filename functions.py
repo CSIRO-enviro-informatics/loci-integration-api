@@ -8,10 +8,13 @@ from config import TRIPLESTORE_CACHE_SPARQL_ENDPOINT
 from config import ES_ENDPOINT
 from config import GEOM_DATA_SVC_ENDPOINT
 from config import LOCI_DATATYPES_STATIC_JSON
+from config import USE_LOCAL_LOCI_DATATYPES_STATIC_JSON 
 from json import JSONDecodeError
 import logging
 import math
 from json import loads
+import os
+import json
 
 from errors import ReportableAPIError
 
@@ -343,18 +346,41 @@ async def get_dataset_types(datasetUri, datasetType, baseType, count=1000, offse
     formatted_resp = {
         'ok': False
     }
-    http_ok = [200]
-    url = LOCI_DATATYPES_STATIC_JSON
-    try:
-        resp = await gdt_session.request('GET', url, params=params)
-        resp_content = await resp.text()
-        if resp.status not in http_ok:
-            formatted_resp['errorMessage'] = "Could not retrieve datatypes at loci.cat. Error code {}".format(resp.status)
-            return formatted_resp
-        formatted_resp = loads(resp_content)
-    except ClientConnectorError:
-        formatted_resp['errorMessage'] = "Could not connect to retrieve datatypes at loci.cat. Connection error thrown."
-        return formatted_resp
+    meta = {
+        'count': -1,
+        'offset': 0
+    }
+    formatted_resp = {}
+    if USE_LOCAL_LOCI_DATATYPES_STATIC_JSON == True:
+       #retrieve from file
+       curr_dir = os.path.dirname(__file__) 
+       rel_path = "loci-types.json"
+       abs_file_path = os.path.join(curr_dir, rel_path)
+       #print("Is file {} : {}".format(abs_file_path, os.path.isfile(abs_file_path)))
+       #arr = os.listdir(curr_dir)
+       #print(arr)
+       try:
+          with open(abs_file_path) as f:
+             #print("file opened")
+             formatted_resp = json.load(f)
+       except:
+          formatted_resp['errorMessage'] = "File error: Could not find file {} to load Loc-I Types with.".format(abs_file_path)
+          return meta,formatted_resp
+          
+       
+    else: #retrieve from the web url
+       http_ok = [200]
+       url = LOCI_DATATYPES_STATIC_JSON
+       try:
+           resp = await gdt_session.request('GET', url, params=params)
+           resp_content = await resp.text()
+           if resp.status not in http_ok:
+               formatted_resp['errorMessage'] = "Could not retrieve datatypes at loci.cat. Error code {}".format(resp.status)
+               return meta,formatted_resp
+           formatted_resp = loads(resp_content)
+       except ClientConnectorError:
+           formatted_resp['errorMessage'] = "Could not connect to retrieve datatypes at loci.cat. Connection error thrown."
+           return meta,formatted_resp
     if(datasetUri is not None):
        res = list(filter(lambda i: i['datasetUri'] == datasetUri, formatted_resp)) 
        formatted_resp = res

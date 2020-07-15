@@ -13,9 +13,11 @@ services:
       - TRIPLESTORE_CACHE_PORT
       - GEOM_DATA_SVC_ENDPOINT
       - LOCI_DATATYPES_STATIC_JSON
+      - USE_LOCAL_LOCI_DATATYPES_STATIC_JSON
       - GEOBASE_URL
       - PG_HOST
       - PG_PORT
       - PG_DB_NAME
       - PG_USER
       - PG_PASSWORD
+      - PG_TABLE

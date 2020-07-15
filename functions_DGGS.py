@@ -9,6 +9,7 @@ from config import TRIPLESTORE_CACHE_SPARQL_ENDPOINT
 from config import ES_ENDPOINT
 from config import GEOM_DATA_SVC_ENDPOINT
 from config import PG_ENDPOINT
+from config import PG_TABLE
 from json import loads
 
 # Mapping linked data base uri to loci data type and DGGS columns
@@ -61,8 +62,8 @@ async def find_dggs_by_loci_uri(uri):
             dggs_column = lookup_value[1]
             uri_value = uri[(len(lookup_key)+1):len(uri)]
             break
-    sql = f'select auspix_dggs from MainTable02 where {dggs_column}=\'{uri_value}\''
-    #print(sql)
+    sql = f'select auspix_dggs from {PG_TABLE} where {dggs_column}=\'{uri_value}\''
+    # print(PG_ENDPOINT)
     conn = psycopg2.connect(PG_ENDPOINT)
     db_cursor = conn.cursor()
     res = db_cursor.execute(sql)
@@ -77,12 +78,16 @@ async def find_dggs_by_loci_uri(uri):
     }
     return meta, dggs_cells
 
+def none_to_empty(none):
+    if none is None:
+        return ''
+    return str(none)
 async def find_at_dggs_cell(dggs_cell):
     """
     Function for finding an array of Loci-i features by a DGGS AUxPIX Cell ID, eg "R6810000005"
     """
     dggs_prefix = 'http://ec2-52-63-73-113.ap-southeast-2.compute.amazonaws.com/AusPIX-DGGS-dataset/ausPIX/'
-    #print(PG_ENDPOINT)
+    # print(PG_ENDPOINT)
     index = dggs_cell.find(dggs_prefix)
     dggs_cell_id = dggs_cell
     if index==0:
@@ -93,8 +98,8 @@ async def find_at_dggs_cell(dggs_cell):
             sa3_code16, \
             lga_code19, \
             ssc_code16 \
-            FROM MainTable02 WHERE auspix_dggs=\'{dggs_cell_id}\''
-    #print(sql)
+            FROM {PG_TABLE} WHERE auspix_dggs=\'{dggs_cell_id}\''
+    # print(sql)
     conn = psycopg2.connect(PG_ENDPOINT)
     db_cursor = conn.cursor()
     res = db_cursor.execute(sql)
@@ -108,27 +113,27 @@ async def find_at_dggs_cell(dggs_cell):
         item = records[0]
         # Manully mapping the selected columns into objects
         sa1_obj = {}
-        sa1_obj['uri'] = 'http://linked.data.gov.au/dataset/asgs2016/statisticalarealevel1/'+item[0]
+        sa1_obj['uri'] = 'http://linked.data.gov.au/dataset/asgs2016/statisticalarealevel1/'+none_to_empty(item[0])
         sa1_obj['datatypeURI'] = 'http://linked.data.gov.au/def/asgs#StatisticalAreaLevel1'
         sa1_obj['dataType'] = 'asgs16_sa1'
 
         sa2_obj = {}
-        sa2_obj['uri'] = 'http://linked.data.gov.au/dataset/asgs2016/statisticalarealevel2/'+item[1]
+        sa2_obj['uri'] = 'http://linked.data.gov.au/dataset/asgs2016/statisticalarealevel2/'+none_to_empty(item[1])
         sa2_obj['datatypeURI'] = 'http://linked.data.gov.au/def/asgs#StatisticalAreaLevel2'
         sa2_obj['dataType'] = 'asgs16_sa2'
 
         sa3_obj = {}
-        sa3_obj['uri'] = 'http://linked.data.gov.au/dataset/asgs2016/statisticalarealevel3/'+item[2]
+        sa3_obj['uri'] = 'http://linked.data.gov.au/dataset/asgs2016/statisticalarealevel3/'+none_to_empty(item[2])
         sa3_obj['datatypeURI'] = 'http://linked.data.gov.au/def/asgs#StatisticalAreaLevel3'
         sa3_obj['dataType'] = 'asgs16_sa3'
 
         lga_obj = {}
-        lga_obj['uri'] = 'http://linked.data.gov.au/dataset/asgs2016/localgovernmentarea/'+item[3]
+        lga_obj['uri'] = 'http://linked.data.gov.au/dataset/asgs2016/localgovernmentarea/'+none_to_empty(item[3])
         lga_obj['datatypeURI'] = 'http://linked.data.gov.au/def/asgs#LocalGovernmentArea'
         lga_obj['dataType'] = 'asgs16_lga'
 
         ssc_obj = {}
-        ssc_obj['uri'] = 'http://linked.data.gov.au/dataset/asgs2016/statesuburb/'+item[4]
+        ssc_obj['uri'] = 'http://linked.data.gov.au/dataset/asgs2016/statesuburb/'+none_to_empty(item[4])
         ssc_obj['datatypeURI'] = 'http://linked.data.gov.au/def/asgs#StateSuburb'
         ssc_obj['dataType'] = 'asgs16_ssc'
 
