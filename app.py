@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 LOCI Integrator API
-Copyright 2019 CSIRO Land and Water
+Copyright 2021 CSIRO Land and Water
 
 @author Ashley Sommer <Ashley.Sommer@csiro.au>
 @author Ben Leighton <Benjamin.Leighton@csiro.au>
@@ -10,12 +10,14 @@ Copyright 2019 CSIRO Land and Water
 __authors__ = "Ashley Sommer, Ben Leighton"
 __email__ = "Ashley.Sommer@csiro.au"
 __maintainer__ = "Ashley Sommer <Ashley.Sommer@csiro.au>"
-__copyright__ = "Copyright 2019 CSIRO Land and Water"
+__copyright__ = "Copyright 2021 CSIRO Land and Water"
 __license__ = "TBD"  # Open source or proprietary? Apache 2.0, or MIT?
 __version__ = "0.0.1"
 
 import os
+from copy import copy
 from sanic import Sanic
+from sanic.log import LOGGING_CONFIG_DEFAULTS
 from sanic.request import Request
 from sanic.response import HTTPResponse
 from spf import SanicPluginsFramework
@@ -28,7 +30,10 @@ import subprocess
 gitlabel = subprocess.check_output(["git", "describe", "--always"]).strip().decode("utf-8")
 
 def create_app():
-    app = Sanic(__name__)
+    LOG_CONFIG = copy(LOGGING_CONFIG_DEFAULTS)
+    LOG_CONFIG['loggers']['sanic.error']['level'] = "WARNING"  # Default is INFO
+    LOG_CONFIG['loggers']['sanic.access']['level'] = "WARNING"  # Default is INFO
+    app = Sanic(__name__, log_config=LOG_CONFIG, configure_logging=True)
     spf = SanicPluginsFramework(app)
     app.config['LOGO'] = r"""
      _     ___   ____ ___   ___ _   _ _____ _____ ____ ____     _  _____ ___  ____       _    ____ ___
@@ -72,12 +77,11 @@ def create_app():
         html = "<h1>LOCI Integration API</h1>\
         <a href=\"api/v1/doc\">Click here to go to the swaggerui doc page.</a>\
         <pre>Git commit: <a href=\"{prefix}{commit}\">{commit}</a></pre>".format(
-              prefix="https://github.com/CSIRO-enviro-informatics/loci-integration-api/commit/", 
+              prefix="https://github.com/CSIRO-enviro-informatics/loci-integration-api/commit/",
               commit=str(gitlabel))
         return HTTPResponse(html, status=200, content_type="text/html")
 
     return app
-
 
 if __name__ == "__main__":
     # Has run from the command line.
@@ -85,4 +89,4 @@ if __name__ == "__main__":
     LISTEN_HOST = "0.0.0.0"
     LISTEN_PORT = 8080
     app = create_app()
-    app.run(LISTEN_HOST, LISTEN_PORT, debug=True, auto_reload=False)
+    app.run(LISTEN_HOST, LISTEN_PORT, debug=False, auto_reload=False)
