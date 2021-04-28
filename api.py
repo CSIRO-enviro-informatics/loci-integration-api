@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 #
 from collections import OrderedDict
+from dateutil import parser as dt_parser
 from sanic.response import json, text, HTTPResponse
 from sanic.request import Request
 from sanic.exceptions import ServiceUnavailable
@@ -10,7 +11,8 @@ import re
 
 from functions import check_type, get_linksets, get_datasets, get_dataset_types, get_locations, get_location_is_within, get_location_contains, get_resource, get_location_overlaps_crosswalk, get_location_overlaps, get_at_location, search_location_by_label, find_geometry_by_loci_uri
 from functions_DGGS import find_dggs_by_loci_uri, find_at_dggs_cell
-from functools import reduce 
+from functions_temporal import get_feature_at_time, intersect_at_time, get_feature_over_time
+from functools import reduce
 
 
 url_prefix = '/v1'
@@ -247,17 +249,17 @@ class Overlaps(Resource):
         include_within = include_within[0] in TRUTHS
         crosswalk = crosswalk[0] in TRUTHS
         if crosswalk:
-            # check if the crosswalk is between stuff with a common base unit and not across hetrogenous base unit hierarchies i.e via linksets 
-            common_base_dataset_type_uri = None 
+            # check if the crosswalk is between stuff with a common base unit and not across hetrogenous base unit hierarchies i.e via linksets
+            common_base_dataset_type_uri = None
             # an output feature type allows searches to be restricted to common base units if other conditions are met
-            if output_featuretype_uri is not None: 
+            if output_featuretype_uri is not None:
                 resource = await get_resource(target_uri)
-                input_featuretype_uri = resource["http://www.w3.org/1999/02/22-rdf-syntax-ns#type"] 
+                input_featuretype_uri = resource["http://www.w3.org/1999/02/22-rdf-syntax-ns#type"]
                 # get all the common base units in loci
                 meta, base_dataset_types = await get_dataset_types(None, None, True, None, None)
-                # place holders for special cases were target_uri or output_featuretype_uri is itself a base unit 
-                output_is_base_type = False 
-                input_is_base_type = False 
+                # place holders for special cases were target_uri or output_featuretype_uri is itself a base unit
+                output_is_base_type = False
+                input_is_base_type = False
                 # iterate through the common base units and look at the hierarchies of things that use those base units
                 # figure out whether both the target_uri type and output_featuretype_uri belong to the same hierarchy
                 # if so note the common_base_dataset_type_uri that joings them
@@ -268,7 +270,7 @@ class Overlaps(Resource):
                     if input_featuretype_uri == base_dataset_type_uri:
                         input_is_base_type = True
                     found_input = False
-                    found_output = False 
+                    found_output = False
                     dataset_type['withinTypes'].append(base_dataset_type_uri)
                     for withinType in dataset_type['withinTypes']:
                         if withinType == input_featuretype_uri:
@@ -290,7 +292,7 @@ class Overlaps(Resource):
                     input_uri_area = resource["http://linked.data.gov.au/def/geox#hasAreaM2"]["http://linked.data.gov.au/def/datatype/value"]
                     input_overlaps_to_base_unit=[{'uri': target_uri, 'featureArea': input_uri_area}]
                 else:
-                    # find base unit by searching from target URI for things within it which are of the common_base_dataset_type_uri     
+                    # find base unit by searching from target URI for things within it which are of the common_base_dataset_type_uri
                     meta, input_overlaps_to_base_unit =  await get_location_overlaps(target_uri, None, True, True, False,
                                                             True, common_base_dataset_type_uri, 1000000000, 0)
                     input_uri_area = meta["featureArea"]
@@ -299,11 +301,11 @@ class Overlaps(Resource):
                     base_uri = base_result['uri']
                     if output_is_base_type:
                         # special case where we just wanted these base units as the result
-                        output_uri = base_result['uri'] 
+                        output_uri = base_result['uri']
                         if not output_uri in output_hits.keys():
                             output_hits[output_uri] = []
-                        output_hits[output_uri].append(base_result) 
-                        output_details[output_uri] = base_result 
+                        output_hits[output_uri].append(base_result)
+                        output_details[output_uri] = base_result
                     else:
                         # look up the hierarchy for everything that contains these base units
                         meta, base_unit_overlaps_to_output = await get_location_overlaps(base_uri, None, True, True, True,
@@ -313,32 +315,32 @@ class Overlaps(Resource):
                             output_uri = output['uri']
                             if not output_uri in output_hits.keys():
                                 output_hits[output_uri] = []
-                            output_hits[output_uri].append(base_result) 
-                            output_details[output_uri] = output 
-                outputs = [] 
-                for output_uri in output_hits.keys(): 
+                            output_hits[output_uri].append(base_result)
+                            output_details[output_uri] = output
+                outputs = []
+                for output_uri in output_hits.keys():
                     # for each of the output things figure out areas of the target_uri overlapping via sums of base units
-                    output  = {} 
-                    output['uri'] = output_uri 
+                    output  = {}
+                    output['uri'] = output_uri
                     output_detail = output_details[output_uri]
                     output_feature_area = None
                     if 'featureArea' in output_detail:
                         output_feature_area  = output_detail['featureArea']
-                    # sum up all the base_unit areas that make up this output area 
+                    # sum up all the base_unit areas that make up this output area
                     output['intersection_area'] = reduce(lambda a,b:{'featureArea': float(a['featureArea']) + float(b['featureArea'])}, output_hits[output_uri])['featureArea']
                     output['forwardPercentage'] = (float(output['intersection_area'])  / float(input_uri_area))  * 100
                     if output_feature_area is not None:
                         output['featureArea'] = output_feature_area
                         output['reversePercentage'] = (float(output['intersection_area'])  / float(output['featureArea'])) * 100
                     outputs.append(output)
-                res_length = len(outputs) 
+                res_length = len(outputs)
                 filtered_outputs = []
                 for output in outputs:
                     # filter outputs to just the target type we want
                     if await check_type(output['uri'], output_featuretype_uri):
                         filtered_outputs.append(output)
 
-                meta, overlaps = { 'count' : len(filtered_outputs), 'offset' : 0, 'featureArea' : input_uri_area}, filtered_outputs 
+                meta, overlaps = { 'count' : len(filtered_outputs), 'offset' : 0, 'featureArea' : input_uri_area}, filtered_outputs
             else:
                 meta, overlaps = await get_location_overlaps_crosswalk(target_uri, output_featuretype_uri, include_areas, include_proportion, include_within,
                                                         include_contains, count, offset)
@@ -406,7 +408,7 @@ class Search(Resource):
 @ns_loc_func.route('/geometry')
 class Geometry(Resource):
     """
-        Function for finding a geometry from a Loc-I Feature URI. 
+        Function for finding a geometry from a Loc-I Feature URI.
         Default view is 'geometryview' (other views include 'simplifiedgeom' and 'centroid').
         Default format is 'application/json' (other formats include 'text/turtle' and 'text/plain'.
     """
@@ -479,3 +481,295 @@ class find_at_DGGS_cell(Resource):
             return json(response, status=200)
         else:
             return json({"error": "Wrong DGGS cell"}, status=400)
+
+
+#TEMPORAL BITS
+ns_loc_func = api_v1.namespace(
+    "time-func", "Temporal Functions",
+    api=api_v1,
+    path='/temporal/',
+)
+
+@ns_loc_func.route('/feature')
+class find_feature_at_time(Resource):
+    """Function for finding a feature at a point in time"""
+
+    @ns.doc('temporal_feature', params=OrderedDict([
+        ("uri", {"description": "LOCI Location/Feature URI",
+                 "required": True, "type": "string"}),
+        ("time", {"description": "ISO8601",
+                  "required": True, "type": "string"}),
+        ("fromDataset", {"description": "Target LOCI Location/Feature URI",
+                 "required": False, "type": "string"}),
+        # ("count", {"description": "Number of locations to return.",
+        #            "required": False, "type": "number", "format": "integer", "default": 1000}),
+        # ("offset", {"description": "Skip number of locations before returning count.",
+        #             "required": False, "type": "number", "format": "integer", "default": 0}),
+    ]), security=None)
+    async def get(self, request, *args, **kwargs):
+        """Gets a loci feature at a point in time."""
+        # count = int(next(iter(request.args.getlist('count', [1000]))))
+        # offset = int(next(iter(request.args.getlist('offset', [0]))))
+        feature_uri = str(next(iter(request.args.getlist('uri'))))
+        at_time_str = str(next(iter(request.args.getlist('time'))))
+        try:
+            at_time = dt_parser.isoparse(at_time_str)
+        except BaseException as e:
+            print(e)
+            return json({"error": "Bad ISO8601 DateTime"}, status=400)
+        results = await get_feature_at_time(feature_uri, at_time)
+
+        return json(results, status=200)
+
+@ns_loc_func.route('/feature2')
+class find_feature_over_time(Resource):
+    """Function for finding a feature between points in time"""
+
+    @ns.doc('temporal_feature2', params=OrderedDict([
+        ("uri", {"description": "LOCI Location/Feature URI",
+                 "required": True, "type": "string"}),
+        ("fromTime", {"description": "FeatureA time - ISO8601",
+                  "required": True, "type": "string"}),
+        ("toTime", {"description": "FeatureB time - ISO8601",
+                  "required": True, "type": "string"}),
+        ("fromDataset", {"description": "Target LOCI Location/Feature URI",
+                 "required": False, "type": "string"}),
+        ("count", {"description": "Number of locations to return.",
+                   "required": False, "type": "number", "format": "integer", "default": 1000}),
+        ("offset", {"description": "Skip number of locations before returning count.",
+                    "required": False, "type": "number", "format": "integer", "default": 0}),
+    ]), security=None)
+    async def get(self, request, *args, **kwargs):
+        """Get all versions of a loci feature between two points in time."""
+        count = int(next(iter(request.args.getlist('count', [1000]))))
+        offset = int(next(iter(request.args.getlist('offset', [0]))))
+        feature_uri = str(next(iter(request.args.getlist('uri'))))
+        from_time_str = str(next(iter(request.args.getlist('fromTime'))))
+        try:
+            from_time = dt_parser.isoparse(from_time_str)
+        except BaseException as e:
+            print(e)
+            return json({"error": "FromTime - Bad ISO8601 DateTime"}, status=400)
+        to_time_str = str(next(iter(request.args.getlist('toTime'))))
+        try:
+            to_time = dt_parser.isoparse(to_time_str)
+        except BaseException as e:
+            print(e)
+            return json({"error": "ToTime - Bad ISO8601 DateTime"}, status=400)
+        results = await get_feature_over_time(feature_uri, from_time, to_time, limit=count, offset=offset)
+
+        return json(results, status=200)
+
+@ns_loc_func.route('/contains')
+class feature_contains_at_time(Resource):
+    """Function for features this feature contains, at a point in time"""
+
+    @ns.doc('temporal_contains', params=OrderedDict([
+        ("uri", {"description": "Source LOCI Location/Feature URI",
+                 "required": True, "type": "string"}),
+        ("time", {"description": "ISO8601",
+                  "required": True, "type": "string"}),
+        ("toFeatureType", {"description": "Target LOCI Feature Type",
+                  "required": True, "type": "string"}),
+        ("count", {"description": "Number of locations to return.",
+                   "required": False, "type": "number", "format": "integer", "default": 1000}),
+        ("offset", {"description": "Skip number of locations before returning count.",
+                    "required": False, "type": "number", "format": "integer", "default": 0}),
+    ]), security=None)
+    async def get(self, request, *args, **kwargs):
+        """Get features this feature contains, at point in time"""
+        count = int(next(iter(request.args.getlist('count', [1000]))))
+        offset = int(next(iter(request.args.getlist('offset', [0]))))
+        feature_uri = str(next(iter(request.args.getlist('uri'))))
+        to_feature_type = str(next(iter(request.args.getlist('toFeatureType'))))
+        at_time_str = str(next(iter(request.args.getlist('time'))))
+        try:
+            at_time = dt_parser.isoparse(at_time_str)
+        except BaseException as e:
+            print(e)
+            return json({"error": "Bad ISO8601 DateTime"}, status=400)
+        results = await intersect_at_time(feature_uri, to_feature_type, at_time, operation='contains')
+
+        return json(results, status=200)
+
+@ns_loc_func.route('/contains2')
+class feature_contains_at_times(Resource):
+    """Same as contains, but target_type is a different point in time"""
+
+    @ns.doc('temporal_contains2', params=OrderedDict([
+        ("uri", {"description": "Source LOCI Location/Feature URI",
+                 "required": True, "type": "string"}),
+        ("fromTime", {"description": "FeatureA time - ISO8601",
+                  "required": True, "type": "string"}),
+        ("toTime", {"description": "FeatureB time - ISO8601",
+                  "required": True, "type": "string"}),
+        ("toFeatureType", {"description": "Target LOCI Feature Type",
+                  "required": True, "type": "string"}),
+        ("count", {"description": "Number of locations to return.",
+                   "required": False, "type": "number", "format": "integer", "default": 1000}),
+        ("offset", {"description": "Skip number of locations before returning count.",
+                    "required": False, "type": "number", "format": "integer", "default": 0}),
+    ]), security=None)
+    async def get(self, request, *args, **kwargs):
+        """Get features this feature contains, at point in time"""
+        count = int(next(iter(request.args.getlist('count', [1000]))))
+        offset = int(next(iter(request.args.getlist('offset', [0]))))
+        feature_uri = str(next(iter(request.args.getlist('uri'))))
+        to_feature_type = str(next(iter(request.args.getlist('toFeatureType'))))
+        from_time_str = str(next(iter(request.args.getlist('fromTime'))))
+        try:
+            from_time = dt_parser.isoparse(from_time_str)
+        except BaseException as e:
+            print(e)
+            return json({"error": "FromTime - Bad ISO8601 DateTime"}, status=400)
+        to_time_str = str(next(iter(request.args.getlist('toTime'))))
+        try:
+            to_time = dt_parser.isoparse(to_time_str)
+        except BaseException as e:
+            print(e)
+            return json({"error": "ToTime - Bad ISO8601 DateTime"}, status=400)
+        results = await intersect_at_time(feature_uri, to_feature_type, from_time, to_time=to_time, operation='contains')
+
+        return json(results, status=200)
+
+@ns_loc_func.route('/within')
+class find_within_at_time(Resource):
+    """Find features within this URI, at a point in time"""
+
+    @ns.doc('temporal_within', params=OrderedDict([
+        ("uri", {"description": "Source LOCI Location/Feature URI",
+                 "required": True, "type": "string"}),
+        ("time", {"description": "ISO8601",
+                  "required": True, "type": "string"}),
+        ("toFeatureType", {"description": "Target LOCI Feature Type",
+                  "required": True, "type": "string"}),
+        ("count", {"description": "Number of locations to return.",
+                   "required": False, "type": "number", "format": "integer", "default": 1000}),
+        ("offset", {"description": "Skip number of locations before returning count.",
+                    "required": False, "type": "number", "format": "integer", "default": 0}),
+    ]), security=None)
+    async def get(self, request, *args, **kwargs):
+        """Get features this URI is within, at a point in time"""
+        count = int(next(iter(request.args.getlist('count', [1000]))))
+        offset = int(next(iter(request.args.getlist('offset', [0]))))
+        feature_uri = str(next(iter(request.args.getlist('uri'))))
+        to_feature_type = str(next(iter(request.args.getlist('toFeatureType'))))
+        at_time_str = str(next(iter(request.args.getlist('time'))))
+        try:
+            at_time = dt_parser.isoparse(at_time_str)
+        except BaseException as e:
+            print(e)
+            return json({"error": "Bad ISO8601 DateTime"}, status=400)
+        results = await intersect_at_time(feature_uri, to_feature_type, at_time, operation='within')
+
+        return json(results, status=200)
+
+@ns_loc_func.route('/within2')
+class find_within_at_times(Resource):
+    """Find features within this URI, at a point in time"""
+
+    @ns.doc('temporal_within2', params=OrderedDict([
+        ("uri", {"description": "Source LOCI Location/Feature URI",
+                 "required": True, "type": "string"}),
+        ("fromTime", {"description": "FeatureA time - ISO8601",
+                  "required": True, "type": "string"}),
+        ("toTime", {"description": "FeatureB time - ISO8601",
+                  "required": True, "type": "string"}),
+        ("toFeatureType", {"description": "Target LOCI Feature Type",
+                  "required": True, "type": "string"}),
+        ("count", {"description": "Number of locations to return.",
+                   "required": False, "type": "number", "format": "integer", "default": 1000}),
+        ("offset", {"description": "Skip number of locations before returning count.",
+                    "required": False, "type": "number", "format": "integer", "default": 0}),
+    ]), security=None)
+    async def get(self, request, *args, **kwargs):
+        """Get features this URI is within, at a point in time"""
+        count = int(next(iter(request.args.getlist('count', [1000]))))
+        offset = int(next(iter(request.args.getlist('offset', [0]))))
+        feature_uri = str(next(iter(request.args.getlist('uri'))))
+        to_feature_type = str(next(iter(request.args.getlist('toFeatureType'))))
+        from_time_str = str(next(iter(request.args.getlist('fromTime'))))
+        try:
+            from_time = dt_parser.isoparse(from_time_str)
+        except BaseException as e:
+            print(e)
+            return json({"error": "FromTime - Bad ISO8601 DateTime"}, status=400)
+        to_time_str = str(next(iter(request.args.getlist('toTime'))))
+        try:
+            to_time = dt_parser.isoparse(to_time_str)
+        except BaseException as e:
+            print(e)
+            return json({"error": "ToTime - Bad ISO8601 DateTime"}, status=400)
+        results = await intersect_at_time(feature_uri, to_feature_type, from_time, to_time=to_time, operation='within')
+
+        return json(results, status=200)
+
+@ns_loc_func.route('/intersects')
+class find_intersects_at_time(Resource):
+    """Find features intersecting this feature, at a point in time"""
+
+    @ns.doc('temporal_intersects', params=OrderedDict([
+        ("uri", {"description": "Source LOCI Location/Feature URI",
+                 "required": True, "type": "string"}),
+        ("time", {"description": "ISO8601",
+                  "required": True, "type": "string"}),
+        ("toFeatureType", {"description": "Target LOCI Feature Type",
+                  "required": True, "type": "string"}),
+        ("count", {"description": "Number of locations to return.",
+                   "required": False, "type": "number", "format": "integer", "default": 1000}),
+        ("offset", {"description": "Skip number of locations before returning count.",
+                    "required": False, "type": "number", "format": "integer", "default": 0}),
+    ]), security=None)
+    async def get(self, request, *args, **kwargs):
+        """Get features this feature intesects, at a point in time"""
+        count = int(next(iter(request.args.getlist('count', [1000]))))
+        offset = int(next(iter(request.args.getlist('offset', [0]))))
+        feature_uri = str(next(iter(request.args.getlist('uri'))))
+        to_feature_type = str(next(iter(request.args.getlist('toFeatureType'))))
+        at_time_str = str(next(iter(request.args.getlist('time'))))
+        try:
+            at_time = dt_parser.isoparse(at_time_str)
+        except BaseException as e:
+            print(e)
+            return json({"error": "Bad ISO8601 DateTime"}, status=400)
+        results = await intersect_at_time(feature_uri, to_feature_type, at_time, operation='intersects')
+        return json(results, status=200)
+
+@ns_loc_func.route('/intersects2')
+class find_intersects_at_times(Resource):
+    """Find features intersecting this feature, at a point in time"""
+
+    @ns.doc('temporal_intersects2', params=OrderedDict([
+        ("uri", {"description": "Source LOCI Location/Feature URI",
+                 "required": True, "type": "string"}),
+        ("fromTime", {"description": "FeatureA time - ISO8601",
+                  "required": True, "type": "string"}),
+        ("toTime", {"description": "FeatureB time - ISO8601",
+                  "required": True, "type": "string"}),
+        ("toFeatureType", {"description": "Target LOCI Feature Type",
+                  "required": True, "type": "string"}),
+        ("count", {"description": "Number of locations to return.",
+                   "required": False, "type": "number", "format": "integer", "default": 1000}),
+        ("offset", {"description": "Skip number of locations before returning count.",
+                    "required": False, "type": "number", "format": "integer", "default": 0}),
+    ]), security=None)
+    async def get(self, request, *args, **kwargs):
+        """Get features this feature intesects, at a point in time"""
+        count = int(next(iter(request.args.getlist('count', [1000]))))
+        offset = int(next(iter(request.args.getlist('offset', [0]))))
+        feature_uri = str(next(iter(request.args.getlist('uri'))))
+        to_feature_type = str(next(iter(request.args.getlist('toFeatureType'))))
+        from_time_str = str(next(iter(request.args.getlist('fromTime'))))
+        try:
+            from_time = dt_parser.isoparse(from_time_str)
+        except BaseException as e:
+            print(e)
+            return json({"error": "FromTime - Bad ISO8601 DateTime"}, status=400)
+        to_time_str = str(next(iter(request.args.getlist('toTime'))))
+        try:
+            to_time = dt_parser.isoparse(to_time_str)
+        except BaseException as e:
+            print(e)
+            return json({"error": "ToTime - Bad ISO8601 DateTime"}, status=400)
+        results = await intersect_at_time(feature_uri, to_feature_type, from_time, to_time=to_time, operation='intersects')
+        return json(results, status=200)
