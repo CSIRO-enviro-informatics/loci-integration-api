@@ -11,7 +11,7 @@ import re
 
 from functions import check_type, get_linksets, get_datasets, get_dataset_types, get_locations, get_location_is_within, get_location_contains, get_resource, get_location_overlaps_crosswalk, get_location_overlaps, get_at_location, search_location_by_label, find_geometry_by_loci_uri
 from functions_DGGS import find_dggs_by_loci_uri, find_at_dggs_cell
-from functions_temporal import get_feature_at_time, intersect_at_time, intersect_over_time, get_feature_over_time
+from functions_temporal import get_feature_at_time, intersect_at_time, intersect_over_time, get_feature_over_time, get_geometry_at_time
 from functools import reduce
 
 
@@ -434,12 +434,13 @@ class Geometry(Resource):
         uri_only = str(next(iter(request.args.getlist('uri_only', ['false']))))
         uri_only = uri_only[0] in TRUTHS
 
-        meta, geometry = await find_geometry_by_loci_uri(loci_uri, geomformat, geomview, uri_only)
-        response = {
-            "meta": meta,
-            "geometry": geometry,
-        }
-        return json(response, status=200)
+        geometry = await get_geometry_at_time(loci_uri)
+        if geomformat in ("json", "application/json", "text/json"):
+            return json({"wkt": geometry}, status=200)
+        elif geomformat in ("text", "application/text", "text/plain"):
+            return text(geometry, 200, content_type="text/plain")
+        else:
+            raise json({"error": "format not supported: {}".format(geomformat)}, status=500)
 
 
 @ns_loc_func.route('/to-DGGS')

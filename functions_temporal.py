@@ -16,6 +16,8 @@ feature_type_to_semantic_table_lookup = {
 "https://linked.data.gov.au/def/asgs#StateElectoralDivision": "semantic_sed"
 }
 
+DATEMIN = datetime.datetime.fromtimestamp(0, datetime.timezone.utc).date()
+DATEMAX = datetime.date(2999, 12, 31)
 STARTJUL2016 = datetime.date(2016,7,1)
 ENDJUN2017 = datetime.date(2017,6,30)
 STARTJUL2017 = datetime.date(2017,7,1)
@@ -227,7 +229,7 @@ async def get_feature_at_time(feature_uri, at_time, conn=None):
     return jsonable_dict(res[0])
 
 
-async def get_feature_deref_over_time(feature_uri, from_date, to_date, conn=None, limit=100, offset=0):
+async def get_feature_deref_over_time(feature_uri, from_date=DATEMIN, to_date=DATEMAX, conn=None, limit=100, offset=0):
     if conn is None:
         conn = await make_pg_connection()
     derefs = await get_all_uris_for_feature(feature_uri, at_date=None, conn=conn, limit=limit, offset=offset)
@@ -239,7 +241,7 @@ async def get_feature_deref_over_time(feature_uri, from_date, to_date, conn=None
     return res_list
 
 
-async def get_feature_over_time(feature_uri, from_time, to_time, conn=None, limit=100, offset=0):
+async def get_feature_over_time(feature_uri, from_time=DATEMIN, to_time=DATEMAX, conn=None, limit=100, offset=0):
     if isinstance(from_time, datetime.datetime):
         from_date = from_time.date()
     else:
@@ -258,6 +260,38 @@ async def get_feature_over_time(feature_uri, from_time, to_time, conn=None, limi
         res_list.append(d)
     return jsonable_list(res_list)
 
+async def impl_get_geometry(feature_uri, tablename, key, code, conn=None):
+    if conn is None:
+        conn = await make_pg_connection()
+    query = """SELECT ST_ASEWKT(wkb_geometry) as geom FROM {} WHERE {} = $1 LIMIT 1""".format(tablename, key)
+    return await conn.fetch(query, code)
+
+async def get_geometry_at_time(feature_uri, at_time=None, conn=None):
+    if conn is None:
+        conn = await make_pg_connection()
+    res_uri = ""
+    tablename, key, code = (None, None, None)
+    if at_time is not None:
+        if isinstance(at_time, datetime.datetime):
+            at_date = at_time.date()
+        else:
+            at_date = at_time
+        d = await get_feature_deref_at_time(feature_uri, at_date, conn=conn)
+        (res_uri, feature_type, schemaname, tablename, key, code, valid_from, valid_to) = d
+    else:
+        deref_list = await get_feature_deref_over_time(feature_uri, conn=conn)
+
+        for d in deref_list:
+            this_uri = d[0]
+            this_len = len(this_uri)
+            if this_len > len(res_uri) or (this_len == len(res_uri) and this_uri > res_uri):  # TODO: This is a crude way of getting the latest temporal version
+                (res_uri, feature_type, dataset, tablename, schemaname, key, code, valid_from, valid_to) = d
+    if None in (tablename, key, code):
+        raise ReportableAPIError("Cannot find a table to get geometry from for URI: {}".format(feature_uri))
+    res = await impl_get_geometry(feature_uri, tablename, key, code, conn=conn)
+    if res is None or len(res) < 1:
+        raise ReportableAPIError("Cannot get geometry for URI: {}".format(feature_uri))
+    return res[0]['geom']
 
 def jsonable_dict(ft, recursion=9):
     out_dict = {}
