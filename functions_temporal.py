@@ -1,9 +1,12 @@
 import asyncio
 import asyncpg
 import datetime
+import threading
+from functools import wraps
 from decimal import Decimal
 from errors import ReportableAPIError
 from config import TEMPORAL_CONN_STRING, TEMPORAL_PG_DB_NAME
+
 
 feature_type_to_semantic_table_lookup = {
 "https://linked.data.gov.au/def/asgs#LocalGovernmentArea": "semantic_lga",
@@ -39,15 +42,57 @@ feature_type_to_low_table_lookup = {
 "https://linked.data.gov.au/def/asgs#StateElectoralDivision": {(STARTJUL2016,ENDJUN2017):('sed_2016_aust', 'sed_code16'), (STARTJUL2017,ENDJUN2018):('sed_2017_aust', 'sed_code17'), (STARTJUL2018,ENDJUN2019):('sed_2018_aust', 'sed_code18'), (STARTJUL2019,ENDMAY2020):('sed_2019_aust', 'sed_code19'), (STARTJUN2020,None):('sed_2020_aust', 'sed_code20')}
 }
 
+threadlocal = threading.local()
 
-async def make_pg_connection():
-    conn = await asyncpg.connect(TEMPORAL_CONN_STRING)
-    return conn
+async def get_pg_connection():
+    pg_conn_lock = getattr(threadlocal, 'pg_conn_lock', None)
+    if pg_conn_lock is None:
+        loop = asyncio.get_event_loop()
+        pg_conn_lock = asyncio.Lock(loop=loop)
+        setattr(threadlocal, 'pg_conn_lock', pg_conn_lock)
+    await pg_conn_lock.acquire()
+    try:
+        pg_pool = getattr(threadlocal, 'pg_pool', None)
+        if pg_pool is None:
+            pg_pool = await asyncpg.create_pool(TEMPORAL_CONN_STRING, min_size=8, max_size=12)
+            setattr(threadlocal, 'pg_pool', pg_pool)
+    finally:
+        pg_conn_lock.release()
+    return await pg_pool.acquire()
 
 
+async def return_pg_connection(conn):
+    pg_conn_lock = getattr(threadlocal, 'pg_conn_lock', None)
+    if pg_conn_lock is None:
+        raise RuntimeError("Connection lock doesn't exist. Cannot return pg connection.")
+    await pg_conn_lock.acquire()
+    try:
+        pg_pool = getattr(threadlocal, 'pg_pool', None)
+        if pg_pool is None:
+            raise RuntimeError("Cannot find pg_pool to return this pg connection!")
+    finally:
+        pg_conn_lock.release()
+    return await pg_pool.release(conn)
+
+
+def with_conn(f):
+    async def inner_f(*args, **kwargs):
+        maybe_conn = kwargs.pop("conn", None)
+        if maybe_conn is None:
+            conn = await get_pg_connection()
+            return_conn = True
+        else:
+            conn = maybe_conn
+            return_conn = False
+        try:
+            return await f(*args, **kwargs, conn=conn)
+        finally:
+            if return_conn:
+                await return_pg_connection(conn)
+    return wraps(f)(inner_f)
+
+@with_conn
 async def get_all_uris_for_feature(feature_uri, at_date=None, limit=100, offset=0, conn=None):
-    if conn is None:
-        conn = await make_pg_connection()
     if at_date is None:
         query = """SELECT uri, feature_type, dataset, tablename, schemaname, "key", code, valid_from, valid_to FROM (
             SELECT uri as match_uri, valid_from as match_valid  FROM public.uris
@@ -70,7 +115,7 @@ async def get_all_uris_for_feature(feature_uri, at_date=None, limit=100, offset=
         res_task = conn.fetch(query, feature_uri, at_date, limit, offset)
     return await res_task
 
-
+@with_conn
 async def get_feature_pg(feature_uri, feature_type=None, limit=100, offset=0, conn=None):
     if feature_type is None:
         raise RuntimeError("Lookup feature without feature_type is currently disabled (needs a manual lookup)")
@@ -78,17 +123,13 @@ async def get_feature_pg(feature_uri, feature_type=None, limit=100, offset=0, co
         table = feature_type_to_semantic_table_lookup.get(feature_type, None)
     if table is None:
         raise RuntimeError("No table known for feature type: {}".format(feature_type))
-    if conn is None:
-        conn = await make_pg_connection()
     query = """SELECT * FROM {} WHERE uri = $1
     ORDER BY uri ASC LIMIT $2 OFFSET $3""".format(table)
     res = await conn.fetch(query, feature_uri, limit, offset)
     return res
 
-
+@with_conn
 async def impl_intersect_features(target_ft, target_table, target_col, source_ft, source_table, source_col, source_code, operation=None, limit=1000, offset=0, conn=None):
-    if conn is None:
-        conn = await make_pg_connection()
     if operation is None or operation == 'intersects':
         operation = "st_intersects(sml.wkb_geometry, big.wkb_geometry)"
     elif operation == 'contains':
@@ -123,6 +164,7 @@ def low_table_lookup_between_dates(feature_type, from_date, to_date):
             out_defs.append(defs[(start_date, end_date)])
     return out_defs
 
+@with_conn
 async def intersect_at_time(from_uri, target_type, at_time, to_time=None, operation=None, limit=1000, offset=0, conn=None):
     if isinstance(at_time, datetime.datetime):
         at_date = at_time.date()
@@ -138,14 +180,13 @@ async def intersect_at_time(from_uri, target_type, at_time, to_time=None, operat
     if target_table is None:
         raise ReportableAPIError("No table lookup available for FeatureType {} at date {}".format(target_type, to_date))
     (target_table, target_col) = target_table
-    if conn is None:
-        conn = await make_pg_connection()
     (uri, feature_type, schemaname, src_tablename, key, code, valid_from, valid_to) = await get_feature_deref_at_time(
         from_uri, at_date)
     records = await impl_intersect_features(target_type, target_table, target_col, feature_type, src_tablename, key, code, operation=operation, limit=limit, offset=offset, conn=conn)
     uris = [r['uri'] for r in records]
     return jsonable_list(uris)
 
+@with_conn
 async def intersect_over_time(from_uri, target_type, from_time, to_time, operation=None, limit=1000, offset=0, conn=None):
     if isinstance(from_time, datetime.datetime):
         from_date = from_time.date()
@@ -156,8 +197,6 @@ async def intersect_over_time(from_uri, target_type, from_time, to_time, operati
         to_date = to_time.date()
     else:
         to_date = to_time
-    if conn is None:
-        conn = await make_pg_connection()
     derefs_list = await get_feature_deref_over_time(from_uri, from_date, to_date, limit=100, offset=0, conn=conn)
     outputs = {}
     for d in derefs_list:
@@ -175,10 +214,8 @@ async def intersect_over_time(from_uri, target_type, from_time, to_time, operati
         outputs[uri] = uris
     return jsonable_dict(outputs)
 
-
+@with_conn
 async def get_feature_deref_at_time(feature_uri, at_date, conn=None):
-    if conn is None:
-        conn = await make_pg_connection()
     feature_derefs = await get_all_uris_for_feature(feature_uri, at_date, limit=100, offset=0, conn=conn)
     (uri, feature_type, schemaname, tablename, key, code, valid_from, valid_to) = (None, None, None, None, None, None, None, None)
     for r in feature_derefs:
@@ -216,22 +253,21 @@ async def get_feature_deref_at_time(feature_uri, at_date, conn=None):
     return (uri, feature_type, schemaname, tablename, key, code, valid_from, valid_to)
 
 
+@with_conn
 async def get_feature_at_time(feature_uri, at_time, conn=None):
     if isinstance(at_time, datetime.datetime):
         at_date = at_time.date()
     else:
         at_date = at_time
-    if conn is None:
-        conn = await make_pg_connection()
     (uri, feature_type, schemaname, tablename, key, code, valid_from, valid_to) = await get_feature_deref_at_time(feature_uri, at_date, conn=conn)
     res = await get_feature_pg(uri, feature_type, conn=conn)
     #Assume we've got just one!
     return jsonable_dict(res[0])
 
-
-async def get_feature_deref_over_time(feature_uri, from_date=DATEMIN, to_date=DATEMAX, conn=None, limit=100, offset=0):
+@with_conn
+async def get_feature_deref_over_time(feature_uri, from_date=DATEMIN, to_date=DATEMAX, limit=100, offset=0, conn=None):
     if conn is None:
-        conn = await make_pg_connection()
+        conn = await get_pg_connection()
     derefs = await get_all_uris_for_feature(feature_uri, at_date=None, conn=conn, limit=limit, offset=offset)
     res_list = []
     for d in derefs:
@@ -240,8 +276,8 @@ async def get_feature_deref_over_time(feature_uri, from_date=DATEMIN, to_date=DA
             res_list.append(d)
     return res_list
 
-
-async def get_feature_over_time(feature_uri, from_time=DATEMIN, to_time=DATEMAX, conn=None, limit=100, offset=0):
+@with_conn
+async def get_feature_over_time(feature_uri, from_time=DATEMIN, to_time=DATEMAX, limit=100, offset=0, conn=None):
     if isinstance(from_time, datetime.datetime):
         from_date = from_time.date()
     else:
@@ -250,8 +286,6 @@ async def get_feature_over_time(feature_uri, from_time=DATEMIN, to_time=DATEMAX,
         to_date = to_time.date()
     else:
         to_date = to_time
-    if conn is None:
-        conn = await make_pg_connection()
     deref_list = await get_feature_deref_over_time(feature_uri, from_date, to_date, conn=conn, limit=limit, offset=offset)
     res_list = []
     for d in deref_list:
@@ -260,6 +294,7 @@ async def get_feature_over_time(feature_uri, from_time=DATEMIN, to_time=DATEMAX,
         res_list.append(d)
     return jsonable_list(res_list)
 
+@with_conn
 async def impl_get_geometry(feature_uri, tablename, key, code, format=None, conn=None):
     if format in (None, "geojson", "application/json", "text/json"):
         operation = "ST_AsGeoJSON"
@@ -267,14 +302,11 @@ async def impl_get_geometry(feature_uri, tablename, key, code, format=None, conn
         operation = "ST_ASEWKT"
     else:
         raise ReportableAPIError("Unknown geometry format: {}".format(format))
-    if conn is None:
-        conn = await make_pg_connection()
     query = """SELECT {}(wkb_geometry) as geom FROM {} WHERE {} = $1 LIMIT 1""".format(operation, tablename, key)
     return await conn.fetch(query, code)
 
+@with_conn
 async def get_geometry_at_time(feature_uri, format, at_time=None, conn=None):
-    if conn is None:
-        conn = await make_pg_connection()
     res_uri = ""
     tablename, key, code = (None, None, None)
     if at_time is not None:
@@ -299,14 +331,26 @@ async def get_geometry_at_time(feature_uri, format, at_time=None, conn=None):
         raise ReportableAPIError("Cannot get geometry for URI: {}".format(feature_uri))
     return res[0]['geom']
 
-
+@with_conn
 async def impl_text_search(feature_type, find_text, col="name", conn=None):
-    if conn is None:
-        conn = await make_pg_connection()
     sem_table = feature_type_to_semantic_table_lookup[feature_type]
     query = """SELECT uri, {0} FROM {1} WHERE LOWER("{0}") LIKE LOWER('%'||$1||'%');""".format(col, sem_table)
     #print("Q: {}".format(query))
     return await conn.fetch(query, find_text)
+
+@with_conn
+async def impl_point_search(feature_type, lat, lon, geom_col="wkb_geometry", srid="4326", count=1000, offset=0, conn=None):
+    poly = "SRID=4326;POINT({} {})".format(lon, lat)
+    low_tables = feature_type_to_low_table_lookup[feature_type]
+    rets = []
+    for (start_time, end_time), t in low_tables.items():
+        table_name, code_col = t
+        query = """SELECT uris.uri, {0} as code FROM {1} AS tbl INNER JOIN uris ON uris.code=tbl.{0} WHERE uris.tablename=$1 AND uris.key=$2 AND ST_Within(ST_Transform(ST_GeomFromEWKT($3), 4283), tbl.{2})""".format(code_col, table_name, geom_col)
+        print("Q: {}".format(query))
+        matches = await conn.fetch(query, table_name, code_col, poly)
+        for m in matches:
+            rets.append((m['uri'], m['code']))
+    return rets
 
 
 async def temporal_get_by_label(find_text, feature_type=None):
@@ -325,7 +369,7 @@ async def temporal_get_by_label(find_text, feature_type=None):
         name_types.remove("https://linked.data.gov.au/def/asgs#StatisticalAreaLevel1")
     if "https://linked.data.gov.au/def/asgs#MeshBlock" in name_types:
         name_types.remove("https://linked.data.gov.au/def/asgs#MeshBlock")
-    jobs = [impl_text_search(n, find_text, col="name") for n in name_types]
+    jobs = [impl_text_search(n, find_text, col="name") for n in name_types] #Don't pass conn to these
     jobs.extend([impl_text_search(c, find_text, col="code") for c in code_types])
     responses = await asyncio.gather(*jobs)
     resp_pairs = {}
@@ -340,6 +384,31 @@ async def temporal_get_by_label(find_text, feature_type=None):
     for u,m in resp_pairs.items():
         resp.append({"uri": u, "match": m})
     return jsonable_list(resp)
+
+
+async def temporal_get_by_point(lat, lon, feature_type=None, crs="4326", count=1000, offset=0):
+    if feature_type is None or feature_type in ("any", "*", ""):
+        feature_types = list(feature_type_to_low_table_lookup.keys())
+    else:
+        feature_type_exists = feature_type_to_low_table_lookup.get(feature_type, False)
+        if not feature_type_exists:
+            raise ReportableAPIError("Feature type {} is not known.".format(feature_type))
+        feature_types = [feature_type]
+    jobs = [impl_point_search(f, lat, lon, srid=crs, count=count, offset=offset) for f in feature_types]
+    responses = await asyncio.gather(*jobs)
+    resp_pairs = {}
+    for r1 in responses:
+        if len(r1) < 1:
+            continue
+        for r2 in r1:
+            ruri, rcode = r2
+            if ruri not in resp_pairs:
+                resp_pairs[ruri] = rcode
+    resp = []
+    for u,m in resp_pairs.items():
+        resp.append({"uri": u, "code": m})
+    return jsonable_list(resp)
+
 
 def jsonable_dict(ft, recursion=9):
     out_dict = {}

@@ -11,7 +11,7 @@ import re
 
 from functions import check_type, get_linksets, get_datasets, get_dataset_types, get_locations, get_location_is_within, get_location_contains, get_resource, get_location_overlaps_crosswalk, get_location_overlaps, get_at_location, search_location_by_label, find_geometry_by_loci_uri
 from functions_DGGS import find_dggs_by_loci_uri, find_at_dggs_cell
-from functions_temporal import get_feature_at_time, intersect_at_time, intersect_over_time, get_feature_over_time, get_geometry_at_time, temporal_get_by_label
+from functions_temporal import get_feature_at_time, intersect_at_time, intersect_over_time, get_feature_over_time, get_geometry_at_time, temporal_get_by_label, temporal_get_by_point
 from functools import reduce
 
 
@@ -382,13 +382,9 @@ class find_at_location(Resource):
         lat = float(next(iter(request.args.getlist('lat', None))))
         crs = int(next(iter(request.args.getlist('crs', [4326]))))
         loci_type = str(next(iter(request.args.getlist('loci_type', 'mb'))))
-        meta, locations = await get_at_location(lat, lon, loci_type, crs, count, offset)
-        response = {
-            "meta": meta,
-            "locations": locations,
-        }
+        features = await temporal_get_by_point(lat, lon, loci_type, crs, count, offset)
 
-        return json(response, status=200)
+        return json(features, status=200)
 
 @ns_loc_func.route('/find-by-label')
 class Search(Resource):
