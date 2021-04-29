@@ -11,7 +11,7 @@ import re
 
 from functions import check_type, get_linksets, get_datasets, get_dataset_types, get_locations, get_location_is_within, get_location_contains, get_resource, get_location_overlaps_crosswalk, get_location_overlaps, get_at_location, search_location_by_label, find_geometry_by_loci_uri
 from functions_DGGS import find_dggs_by_loci_uri, find_at_dggs_cell
-from functions_temporal import get_feature_at_time, intersect_at_time, get_feature_over_time
+from functions_temporal import get_feature_at_time, intersect_at_time, intersect_over_time, get_feature_over_time
 from functools import reduce
 
 
@@ -632,6 +632,47 @@ class feature_contains_at_times(Resource):
 
         return json(results, status=200)
 
+
+@ns_loc_func.route('/contains3')
+class feature_contains_over_time(Resource):
+    """Same as contains, but between two points in time"""
+
+    @ns.doc('temporal_contains3', params=OrderedDict([
+        ("uri", {"description": "Source LOCI Location/Feature URI",
+                 "required": True, "type": "string"}),
+        ("fromTime", {"description": "Timespan Start - ISO8601",
+                  "required": True, "type": "string"}),
+        ("toTime", {"description": "Timespan End - ISO8601",
+                  "required": True, "type": "string"}),
+        ("toFeatureType", {"description": "Target LOCI Feature Type",
+                  "required": True, "type": "string"}),
+        ("count", {"description": "Number of locations to return.",
+                   "required": False, "type": "number", "format": "integer", "default": 1000}),
+        ("offset", {"description": "Skip number of locations before returning count.",
+                    "required": False, "type": "number", "format": "integer", "default": 0}),
+    ]), security=None)
+    async def get(self, request, *args, **kwargs):
+        """Get features this feature contains, at point in time"""
+        count = int(next(iter(request.args.getlist('count', [1000]))))
+        offset = int(next(iter(request.args.getlist('offset', [0]))))
+        feature_uri = str(next(iter(request.args.getlist('uri'))))
+        to_feature_type = str(next(iter(request.args.getlist('toFeatureType'))))
+        from_time_str = str(next(iter(request.args.getlist('fromTime'))))
+        try:
+            from_time = dt_parser.isoparse(from_time_str)
+        except BaseException as e:
+            print(e)
+            return json({"error": "FromTime - Bad ISO8601 DateTime"}, status=400)
+        to_time_str = str(next(iter(request.args.getlist('toTime'))))
+        try:
+            to_time = dt_parser.isoparse(to_time_str)
+        except BaseException as e:
+            print(e)
+            return json({"error": "ToTime - Bad ISO8601 DateTime"}, status=400)
+        results = await intersect_over_time(feature_uri, to_feature_type, from_time, to_time, operation='contains')
+
+        return json(results, status=200)
+
 @ns_loc_func.route('/within')
 class find_within_at_time(Resource):
     """Find features within this URI, at a point in time"""
@@ -661,7 +702,6 @@ class find_within_at_time(Resource):
             print(e)
             return json({"error": "Bad ISO8601 DateTime"}, status=400)
         results = await intersect_at_time(feature_uri, to_feature_type, at_time, operation='within')
-
         return json(results, status=200)
 
 @ns_loc_func.route('/within2')
@@ -701,7 +741,46 @@ class find_within_at_times(Resource):
             print(e)
             return json({"error": "ToTime - Bad ISO8601 DateTime"}, status=400)
         results = await intersect_at_time(feature_uri, to_feature_type, from_time, to_time=to_time, operation='within')
+        return json(results, status=200)
 
+
+@ns_loc_func.route('/within3')
+class find_within_over_time(Resource):
+    """Find features within this URI, between two points in time"""
+
+    @ns.doc('temporal_within3', params=OrderedDict([
+        ("uri", {"description": "Source LOCI Location/Feature URI",
+                 "required": True, "type": "string"}),
+        ("fromTime", {"description": "Timespan Start - ISO8601",
+                  "required": True, "type": "string"}),
+        ("toTime", {"description": "Timespan End - ISO8601",
+                  "required": True, "type": "string"}),
+        ("toFeatureType", {"description": "Target LOCI Feature Type",
+                  "required": True, "type": "string"}),
+        ("count", {"description": "Number of locations to return.",
+                   "required": False, "type": "number", "format": "integer", "default": 1000}),
+        ("offset", {"description": "Skip number of locations before returning count.",
+                    "required": False, "type": "number", "format": "integer", "default": 0}),
+    ]), security=None)
+    async def get(self, request, *args, **kwargs):
+        """Get features this URI is within, between two points in time"""
+        count = int(next(iter(request.args.getlist('count', [1000]))))
+        offset = int(next(iter(request.args.getlist('offset', [0]))))
+        feature_uri = str(next(iter(request.args.getlist('uri'))))
+        to_feature_type = str(next(iter(request.args.getlist('toFeatureType'))))
+        from_time_str = str(next(iter(request.args.getlist('fromTime'))))
+        try:
+            from_time = dt_parser.isoparse(from_time_str)
+        except BaseException as e:
+            print(e)
+            return json({"error": "FromTime - Bad ISO8601 DateTime"}, status=400)
+        to_time_str = str(next(iter(request.args.getlist('toTime'))))
+        try:
+            to_time = dt_parser.isoparse(to_time_str)
+        except BaseException as e:
+            print(e)
+            return json({"error": "ToTime - Bad ISO8601 DateTime"}, status=400)
+        results = await intersect_over_time(feature_uri, to_feature_type, from_time, to_time, operation='within')
         return json(results, status=200)
 
 @ns_loc_func.route('/intersects')
@@ -772,4 +851,43 @@ class find_intersects_at_times(Resource):
             print(e)
             return json({"error": "ToTime - Bad ISO8601 DateTime"}, status=400)
         results = await intersect_at_time(feature_uri, to_feature_type, from_time, to_time=to_time, operation='intersects')
+        return json(results, status=200)
+
+@ns_loc_func.route('/intersects3')
+class find_intersects_over_time(Resource):
+    """Find features intersecting this feature, between two points in time"""
+
+    @ns.doc('temporal_intersects3', params=OrderedDict([
+        ("uri", {"description": "Source LOCI Location/Feature URI",
+                 "required": True, "type": "string"}),
+        ("fromTime", {"description": "Timespan Start - ISO8601",
+                  "required": True, "type": "string"}),
+        ("toTime", {"description": "Timespan End - ISO8601",
+                  "required": True, "type": "string"}),
+        ("toFeatureType", {"description": "Target LOCI Feature Type",
+                  "required": True, "type": "string"}),
+        ("count", {"description": "Number of locations to return.",
+                   "required": False, "type": "number", "format": "integer", "default": 1000}),
+        ("offset", {"description": "Skip number of locations before returning count.",
+                    "required": False, "type": "number", "format": "integer", "default": 0}),
+    ]), security=None)
+    async def get(self, request, *args, **kwargs):
+        """Get features this feature intesects,between two points in time"""
+        count = int(next(iter(request.args.getlist('count', [1000]))))
+        offset = int(next(iter(request.args.getlist('offset', [0]))))
+        feature_uri = str(next(iter(request.args.getlist('uri'))))
+        to_feature_type = str(next(iter(request.args.getlist('toFeatureType'))))
+        from_time_str = str(next(iter(request.args.getlist('fromTime'))))
+        try:
+            from_time = dt_parser.isoparse(from_time_str)
+        except BaseException as e:
+            print(e)
+            return json({"error": "FromTime - Bad ISO8601 DateTime"}, status=400)
+        to_time_str = str(next(iter(request.args.getlist('toTime'))))
+        try:
+            to_time = dt_parser.isoparse(to_time_str)
+        except BaseException as e:
+            print(e)
+            return json({"error": "ToTime - Bad ISO8601 DateTime"}, status=400)
+        results = await intersect_over_time(feature_uri, to_feature_type, from_time, to_time, operation='intersects')
         return json(results, status=200)

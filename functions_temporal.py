@@ -110,6 +110,16 @@ def low_table_lookup_at_date(feature_type, at_date):
             return defs[(start_date, end_date)]
     return None
 
+def low_table_lookup_between_dates(feature_type, from_date, to_date):
+    defs = feature_type_to_low_table_lookup.get(feature_type, None)
+    if defs is None or len(defs) < 1:
+        return []
+    ordered_defs = reversed(sorted(defs, key=lambda x: x[0]))
+    out_defs = []
+    for (start_date,end_date) in ordered_defs:
+        if start_date <= to_date and (end_date is None or end_date >= from_date):
+            out_defs.append(defs[(start_date, end_date)])
+    return out_defs
 
 async def intersect_at_time(from_uri, target_type, at_time, to_time=None, operation=None, limit=1000, offset=0, conn=None):
     if isinstance(at_time, datetime.datetime):
@@ -133,6 +143,35 @@ async def intersect_at_time(from_uri, target_type, at_time, to_time=None, operat
     records = await impl_intersect_features(target_type, target_table, target_col, feature_type, src_tablename, key, code, operation=operation, limit=limit, offset=offset, conn=conn)
     uris = [r['uri'] for r in records]
     return jsonable_list(uris)
+
+async def intersect_over_time(from_uri, target_type, from_time, to_time, operation=None, limit=1000, offset=0, conn=None):
+    if isinstance(from_time, datetime.datetime):
+        from_date = from_time.date()
+    else:
+        from_date = from_time
+
+    if isinstance(to_time, datetime.datetime):
+        to_date = to_time.date()
+    else:
+        to_date = to_time
+    if conn is None:
+        conn = await make_pg_connection()
+    derefs_list = await get_feature_deref_over_time(from_uri, from_date, to_date, limit=100, offset=0, conn=conn)
+    outputs = {}
+    for d in derefs_list:
+        (uri, feature_type, dataset, src_tablename, schemaname, key, code, t_valid_from, t_valid_to) = d
+        if t_valid_to is None:
+            t_valid_to = to_date  # valid_to can be None, but to_date won't be
+        target_tables = low_table_lookup_between_dates(target_type, t_valid_from, t_valid_to)
+        if target_tables is None or len(target_tables) < 1:
+            continue
+        uris = []
+        for t in target_tables:
+            (target_table, target_col) = t
+            records = await impl_intersect_features(target_type, target_table, target_col, feature_type, src_tablename, key, code, operation=operation, limit=limit, offset=offset, conn=conn)
+            uris.extend(r['uri'] for r in records)
+        outputs[uri] = uris
+    return jsonable_dict(outputs)
 
 
 async def get_feature_deref_at_time(feature_uri, at_date, conn=None):
@@ -187,6 +226,19 @@ async def get_feature_at_time(feature_uri, at_time, conn=None):
     #Assume we've got just one!
     return jsonable_dict(res[0])
 
+
+async def get_feature_deref_over_time(feature_uri, from_date, to_date, conn=None, limit=100, offset=0):
+    if conn is None:
+        conn = await make_pg_connection()
+    derefs = await get_all_uris_for_feature(feature_uri, at_date=None, conn=conn, limit=limit, offset=offset)
+    res_list = []
+    for d in derefs:
+        (uri, feature_type, dataset, tablename, schemaname, key, code, valid_from, valid_to) = d
+        if valid_from <= to_date and (valid_to is None or valid_to >= from_date):
+            res_list.append(d)
+    return res_list
+
+
 async def get_feature_over_time(feature_uri, from_time, to_time, conn=None, limit=100, offset=0):
     if isinstance(from_time, datetime.datetime):
         from_date = from_time.date()
@@ -198,13 +250,12 @@ async def get_feature_over_time(feature_uri, from_time, to_time, conn=None, limi
         to_date = to_time
     if conn is None:
         conn = await make_pg_connection()
-    derefs = await get_all_uris_for_feature(feature_uri, at_date=None, conn=conn, limit=limit, offset=offset)
+    deref_list = await get_feature_deref_over_time(feature_uri, from_date, to_date, conn=conn, limit=limit, offset=offset)
     res_list = []
-    for d in derefs:
+    for d in deref_list:
         (uri, feature_type, dataset, tablename, schemaname, key, code, valid_from, valid_to) = d
-        if valid_from <= to_date and (valid_to is None or valid_to >= from_date):
-            res = await get_feature_pg(uri, feature_type, conn=conn)
-            res_list.append(res[0])
+        res = await get_feature_pg(uri, feature_type, conn=conn)
+        res_list.append(d)
     return jsonable_list(res_list)
 
 
