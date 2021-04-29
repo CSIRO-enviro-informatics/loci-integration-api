@@ -299,6 +299,48 @@ async def get_geometry_at_time(feature_uri, format, at_time=None, conn=None):
         raise ReportableAPIError("Cannot get geometry for URI: {}".format(feature_uri))
     return res[0]['geom']
 
+
+async def impl_text_search(feature_type, find_text, col="name", conn=None):
+    if conn is None:
+        conn = await make_pg_connection()
+    sem_table = feature_type_to_semantic_table_lookup[feature_type]
+    query = """SELECT uri, {0} FROM {1} WHERE LOWER("{0}") LIKE LOWER('%'||$1||'%');""".format(col, sem_table)
+    print("Q: {}".format(query))
+    return await conn.fetch(query, find_text)
+
+
+async def temporal_get_by_label(find_text, feature_type=None):
+    if feature_type is None:
+        feature_types = list(feature_type_to_semantic_table_lookup.keys())
+    else:
+        feature_type_exists = feature_type_to_semantic_table_lookup.get(feature_type, False)
+        if not feature_type_exists:
+            raise ReportableAPIError("Feature type {} is not known.".format(feature_type))
+        feature_types = [feature_type]
+
+    code_types = feature_types.copy()
+    name_types = feature_types.copy()
+    #these ones don't have a name
+    if "https://linked.data.gov.au/def/asgs#StatisticalAreaLevel1" in name_types:
+        name_types.remove("https://linked.data.gov.au/def/asgs#StatisticalAreaLevel1")
+    if "https://linked.data.gov.au/def/asgs#MeshBlock" in name_types:
+        name_types.remove("https://linked.data.gov.au/def/asgs#MeshBlock")
+    jobs = [impl_text_search(n, find_text, col="name") for n in name_types]
+    jobs.extend([impl_text_search(c, find_text, col="code") for c in code_types])
+    responses = await asyncio.gather(*jobs)
+    resp_pairs = {}
+    resp = []
+    for r1 in responses:
+        if len(r1) < 1:
+            continue
+        for r2 in r1:
+            ruri, rname  = r2
+            if ruri not in resp_pairs:
+                resp_pairs[ruri] = rname
+    for u,m in resp_pairs.items():
+        resp.append({"uri": u, "match": m})
+    return jsonable_list(resp)
+
 def jsonable_dict(ft, recursion=9):
     out_dict = {}
     if recursion <= 0:

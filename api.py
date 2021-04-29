@@ -11,7 +11,7 @@ import re
 
 from functions import check_type, get_linksets, get_datasets, get_dataset_types, get_locations, get_location_is_within, get_location_contains, get_resource, get_location_overlaps_crosswalk, get_location_overlaps, get_at_location, search_location_by_label, find_geometry_by_loci_uri
 from functions_DGGS import find_dggs_by_loci_uri, find_at_dggs_cell
-from functions_temporal import get_feature_at_time, intersect_at_time, intersect_over_time, get_feature_over_time, get_geometry_at_time
+from functions_temporal import get_feature_at_time, intersect_at_time, intersect_over_time, get_feature_over_time, get_geometry_at_time, temporal_get_by_label
 from functools import reduce
 
 
@@ -401,7 +401,7 @@ class Search(Resource):
     async def get(self, request, *args, **kwargs):
         """Calls search engine to query LOCI Locations by label"""
         query = str(next(iter(request.args.getlist('query'))))
-        result = await search_location_by_label(query)
+        result = await temporal_get_by_label(query)
         response = result
         return json(response, status=200)
 
