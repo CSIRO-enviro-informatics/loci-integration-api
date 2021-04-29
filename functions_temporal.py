@@ -305,7 +305,7 @@ async def impl_text_search(feature_type, find_text, col="name", conn=None):
         conn = await make_pg_connection()
     sem_table = feature_type_to_semantic_table_lookup[feature_type]
     query = """SELECT uri, {0} FROM {1} WHERE LOWER("{0}") LIKE LOWER('%'||$1||'%');""".format(col, sem_table)
-    print("Q: {}".format(query))
+    #print("Q: {}".format(query))
     return await conn.fetch(query, find_text)
 
 
