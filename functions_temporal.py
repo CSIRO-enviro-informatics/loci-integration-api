@@ -260,13 +260,19 @@ async def get_feature_over_time(feature_uri, from_time=DATEMIN, to_time=DATEMAX,
         res_list.append(d)
     return jsonable_list(res_list)
 
-async def impl_get_geometry(feature_uri, tablename, key, code, conn=None):
+async def impl_get_geometry(feature_uri, tablename, key, code, format=None, conn=None):
+    if format in (None, "geojson", "application/json", "text/json"):
+        operation = "ST_AsGeoJSON"
+    elif format in ("text", "wkt", "ewkt", "text/plain", "application/text", "text/wkt", "application/wkt"):
+        operation = "ST_ASEWKT"
+    else:
+        raise ReportableAPIError("Unknown geometry format: {}".format(format))
     if conn is None:
         conn = await make_pg_connection()
-    query = """SELECT ST_ASEWKT(wkb_geometry) as geom FROM {} WHERE {} = $1 LIMIT 1""".format(tablename, key)
+    query = """SELECT {}(wkb_geometry) as geom FROM {} WHERE {} = $1 LIMIT 1""".format(operation, tablename, key)
     return await conn.fetch(query, code)
 
-async def get_geometry_at_time(feature_uri, at_time=None, conn=None):
+async def get_geometry_at_time(feature_uri, format, at_time=None, conn=None):
     if conn is None:
         conn = await make_pg_connection()
     res_uri = ""
@@ -288,7 +294,7 @@ async def get_geometry_at_time(feature_uri, at_time=None, conn=None):
                 (res_uri, feature_type, dataset, tablename, schemaname, key, code, valid_from, valid_to) = d
     if None in (tablename, key, code):
         raise ReportableAPIError("Cannot find a table to get geometry from for URI: {}".format(feature_uri))
-    res = await impl_get_geometry(feature_uri, tablename, key, code, conn=conn)
+    res = await impl_get_geometry(feature_uri, tablename, key, code, format=format, conn=conn)
     if res is None or len(res) < 1:
         raise ReportableAPIError("Cannot get geometry for URI: {}".format(feature_uri))
     return res[0]['geom']

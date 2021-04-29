@@ -434,11 +434,12 @@ class Geometry(Resource):
         uri_only = str(next(iter(request.args.getlist('uri_only', ['false']))))
         uri_only = uri_only[0] in TRUTHS
 
-        geometry = await get_geometry_at_time(loci_uri)
         if geomformat in ("json", "application/json", "text/json"):
-            return json({"wkt": geometry}, status=200)
+            geometry = await get_geometry_at_time(loci_uri, "geojson")
+            return text(geometry, status=200, content_type="application/json")
         elif geomformat in ("text", "application/text", "text/plain"):
-            return text(geometry, 200, content_type="text/plain")
+            geometry = await get_geometry_at_time(loci_uri, "wkt")
+            return text(geometry, status=200, content_type="text/plain",)
         else:
             raise json({"error": "format not supported: {}".format(geomformat)}, status=500)
 
