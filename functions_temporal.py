@@ -335,7 +335,6 @@ async def get_geometry_at_time(feature_uri, format, at_time=None, conn=None):
 async def impl_text_search(feature_type, find_text, col="name", conn=None):
     sem_table = feature_type_to_semantic_table_lookup[feature_type]
     query = """SELECT uri, {0} FROM {1} WHERE LOWER("{0}") LIKE LOWER('%'||$1||'%');""".format(col, sem_table)
-    #print("Q: {}".format(query))
     return await conn.fetch(query, find_text)
 
 @with_conn
@@ -346,7 +345,6 @@ async def impl_point_search(feature_type, lat, lon, geom_col="wkb_geometry", sri
     for (start_time, end_time), t in low_tables.items():
         table_name, id_col = t
         query = """SELECT uris.uri, {0} as code FROM {1} AS tbl INNER JOIN uris ON uris.code::text=tbl.{0}::text WHERE uris.tablename=$1 AND uris.key=$2 AND ST_Within(ST_Transform(ST_GeomFromEWKT($3), 4283), tbl.{2})""".format(id_col, table_name, geom_col)
-        print("Q: {}".format(query))
         matches = await conn.fetch(query, table_name, id_col, poly)
         for m in matches:
             rets.append((m['uri'], m['code']))
