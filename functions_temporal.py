@@ -33,13 +33,13 @@ STARTJUN2020 = datetime.date(2020,6,1)
 
 feature_type_to_low_table_lookup = {
 "https://linked.data.gov.au/def/asgs#LocalGovernmentArea": {(STARTJUL2016,ENDJUN2017):('lga_2016_aust', 'lga_code16'),(STARTJUL2017,ENDJUN2018):('lga_2017_aust', 'lga_code17'), (STARTJUL2018,ENDJUN2019):('lga_2018_aust', 'lga_code18'), (STARTJUL2019,ENDMAY2020):('lga_2019_aust', 'lga_code19'), (STARTJUN2020,None):('lga_2020_aust', 'lga_code20')},
-"https://linked.data.gov.au/def/asgs#CommonwealthElectoralDivision": {(STARTJUL2016,ENDJUN2017):('ced_2016_aust', 'ced_code16'),(STARTJUL2017,ENDJUN2018):('ced_2017_aust', 'ced_code17'), (STARTJUL2018,None):('ced_2018_aust', 'ced_code18')},
+"https://linked.data.gov.au/def/asgs#CommonwealthElectoralDivision": {(STARTJUL2016,ENDJUN2017):('ced_2016_aust', 'ced_name16'),(STARTJUL2017,ENDJUN2018):('ced_2017_aust', 'ced_name17'), (STARTJUL2018,None):('ced_2018_aust', 'ced_name18')},
 "https://linked.data.gov.au/def/asgs#MeshBlock": {(STARTJUL2016,None):("mb_2016_aust", 'mb_code16')},
 "https://linked.data.gov.au/def/asgs#StatisticalAreaLevel1": {(STARTJUL2016,None):("sa1_2016_aust", 'sa1_main16')},
 "https://linked.data.gov.au/def/asgs#StatisticalAreaLevel2": {(STARTJUL2016,None):("sa2_2016_aust", 'sa2_main16')},
 "https://linked.data.gov.au/def/asgs#StatisticalAreaLevel3": {(STARTJUL2016,None):("sa3_2016_aust", 'sa3_code16')},
 "https://linked.data.gov.au/def/asgs#StatisticalAreaLevel4": {(STARTJUL2016,None):("sa4_2016_aust", 'sa4_code16')},
-"https://linked.data.gov.au/def/asgs#StateElectoralDivision": {(STARTJUL2016,ENDJUN2017):('sed_2016_aust', 'sed_code16'), (STARTJUL2017,ENDJUN2018):('sed_2017_aust', 'sed_code17'), (STARTJUL2018,ENDJUN2019):('sed_2018_aust', 'sed_code18'), (STARTJUL2019,ENDMAY2020):('sed_2019_aust', 'sed_code19'), (STARTJUN2020,None):('sed_2020_aust', 'sed_code20')}
+"https://linked.data.gov.au/def/asgs#StateElectoralDivision": {(STARTJUL2016,ENDJUN2017):('sed_2016_aust', 'sed_name16'), (STARTJUL2017,ENDJUN2018):('sed_2017_aust', 'sed_name17'), (STARTJUL2018,ENDJUN2019):('sed_2018_aust', 'sed_name18'), (STARTJUL2019,ENDMAY2020):('sed_2019_aust', 'sed_name19'), (STARTJUN2020,None):('sed_2020_aust', 'sed_name20')}
 }
 
 threadlocal = threading.local()
@@ -129,7 +129,7 @@ async def get_feature_pg(feature_uri, feature_type=None, limit=100, offset=0, co
     return res
 
 @with_conn
-async def impl_intersect_features(target_ft, target_table, target_col, source_ft, source_table, source_col, source_code, operation=None, limit=1000, offset=0, conn=None):
+async def impl_intersect_features(target_ft, target_table, target_col, source_ft, source_table, source_col, source_id, operation=None, limit=1000, offset=0, conn=None):
     if operation is None or operation == 'intersects':
         operation = "st_intersects(sml.wkb_geometry, big.wkb_geometry)"
     elif operation == 'contains':
@@ -137,10 +137,10 @@ async def impl_intersect_features(target_ft, target_table, target_col, source_ft
     elif operation == 'within':
         operation = "st_within(big.wkb_geometry, sml.wkb_geometry)"
 
-    query = """SELECT uris.uri, sml.{0} FROM {1} as sml INNER JOIN {2} as big ON {4}
-    INNER JOIN uris ON uris.tablename = $1 AND uris.key = $2 AND uris.feature_type = $3 AND uris.code=sml.{0}
-    WHERE big.{3} = $4 LIMIT $5 OFFSET $6""".format(target_col, target_table, source_table, source_col, operation) # ORDER BY uris.uri ASC <-- this order_by increases search time substantially
-    return await conn.fetch(query, target_table, target_col, target_ft, source_code, limit, offset)
+    query = """SELECT uris.uri, sml.{0} FROM {1} as sml INNER JOIN {2} as big ON sml.wkb_geometry&&big.wkb_geometry
+    INNER JOIN uris ON uris.tablename = $1 AND uris.key = $2 AND uris.feature_type = $3 AND uris.code::text=sml.{0}::text
+    WHERE big.{3} = $4 AND {4} LIMIT $5 OFFSET $6""".format(target_col, target_table, source_table, source_col, operation)  # ORDER BY uris.uri ASC <-- this order_by increases search time substantially
+    return await conn.fetch(query, target_table, target_col, target_ft, source_id, limit, offset)
 
 
 def low_table_lookup_at_date(feature_type, at_date):
@@ -344,10 +344,10 @@ async def impl_point_search(feature_type, lat, lon, geom_col="wkb_geometry", sri
     low_tables = feature_type_to_low_table_lookup[feature_type]
     rets = []
     for (start_time, end_time), t in low_tables.items():
-        table_name, code_col = t
-        query = """SELECT uris.uri, {0} as code FROM {1} AS tbl INNER JOIN uris ON uris.code=tbl.{0} WHERE uris.tablename=$1 AND uris.key=$2 AND ST_Within(ST_Transform(ST_GeomFromEWKT($3), 4283), tbl.{2})""".format(code_col, table_name, geom_col)
+        table_name, id_col = t
+        query = """SELECT uris.uri, {0} as code FROM {1} AS tbl INNER JOIN uris ON uris.code::text=tbl.{0}::text WHERE uris.tablename=$1 AND uris.key=$2 AND ST_Within(ST_Transform(ST_GeomFromEWKT($3), 4283), tbl.{2})""".format(id_col, table_name, geom_col)
         print("Q: {}".format(query))
-        matches = await conn.fetch(query, table_name, code_col, poly)
+        matches = await conn.fetch(query, table_name, id_col, poly)
         for m in matches:
             rets.append((m['uri'], m['code']))
     return rets
