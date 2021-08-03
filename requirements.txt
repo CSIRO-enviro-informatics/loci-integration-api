@@ -13,7 +13,7 @@ httptools==0.2.0
 httpx==0.15.4
 idna==3.1
 importlib-metadata==4.0.1
-Jinja2==2.11.3
+Jinja2==2.10.3
 jsonschema==3.2.0
 MarkupSafe==1.1.1
 methodtools==0.4.2
@@ -27,7 +27,7 @@ Sanic-Cors==0.10.0.post3
 sanic-jinja2==0.9.1
 Sanic-Jinja2-SPF==0.8.0
 Sanic-Plugins-Framework==0.9.5
-sanic-restplus==0.5.5
+sanic-restplus==0.5.6.post1
 six==1.15.0
 sniffio==1.2.0
 typing-extensions==3.7.4.3
