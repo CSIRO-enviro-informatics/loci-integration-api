@@ -21,4 +21,4 @@ RUN pip3 install --no-cache-dir gunicorn
 
 # Deprecated launch
 #ENTRYPOINT ["uvicorn", "--host", "0.0.0.0", "--port", "8080", "--log-level", "warning", "--no-access-log", "--factory", "app:create_app"]
-#CMD ["gunicorn","app:app", "--bind", "0.0.0.0:8080", "--worker-class", "sanic.worker.GunicornWorker"]
+#CMD ["gunicorn","app:create_app", "--bind", "0.0.0.0:8080", "--worker-class", "sanic.worker.GunicornWorker"]
