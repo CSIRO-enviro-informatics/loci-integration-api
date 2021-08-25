@@ -21,3 +21,8 @@ services:
       - PG_USER
       - PG_PASSWORD
       - PG_TABLE
+      - TEMPORAL_PG_HOST
+      - TEMPORAL_PG_PORT
+      - TEMPORAL_PG_DB_NAME
+      - TEMPORAL_PG_USER
+      - TEMPORAL_PG_PASSWORD
